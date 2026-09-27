@@ -1,0 +1,52 @@
+game "E#+ Cube Survival"
+
+window width 1280
+window height 720
+window title "E#+ Cube Survival"
+
+camera first person
+
+player create "Hero"
+player position 0 2 12
+player speed 6
+player health 100
+
+arena size 40
+
+enemy create "CubeEnemy"
+enemy health 30
+enemy speed 2
+enemy damage 10
+
+weapon create "Blaster"
+weapon damage 15
+weapon fire rate 0.2
+
+game spawn rate 2
+game max enemies 20
+game win score 1000
+game win time 180
+
+while game is running
+
+    if key "W" is pressed
+        player move forward
+    end
+
+    if key "S" is pressed
+        player move backward
+    end
+
+    if key "A" is pressed
+        player move left
+    end
+
+    if key "D" is pressed
+        player move right
+    end
+
+    if mouse button "left" is pressed
+        weapon fire
+    end
+
+end
