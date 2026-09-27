@@ -78,7 +78,7 @@ static int load_scene(const char *path,Scene *s) {
         if(sscanf_s(line,"DAMAGE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].damage=x;continue;}
         if(sscanf_s(line,"MODEL %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].model,sizeof(s->entities[i].model),b,_TRUNCATE);continue;}
         if(sscanf_s(line,"CONTROL %127s",a,(unsigned)_countof(a))==1){int i=find_entity(s,a);if(i>=0)s->entities[i].controllable=1;continue;}
-        if(sscanf_s(line,"RULE %63s %127s %127s %127s %f",a,(unsigned)_countof(a),b,(unsigned)_countof(b),c,(unsigned)_countof(c),s->entities[0].name,(unsigned)_countof(s->entities[0].name),&x)>=0) {
+        if(!strncmp(line,"RULE ",5)) {
             char event[64],who[128],action[128],target[128]; float value=0;
             int n=sscanf_s(line,"RULE %63s %127s %127s %127s %f",event,(unsigned)_countof(event),who,(unsigned)_countof(who),action,(unsigned)_countof(action),target,(unsigned)_countof(target),&value);
             if(n>=4)add_rule(s,event,who,action,target,n==5?value:0);
