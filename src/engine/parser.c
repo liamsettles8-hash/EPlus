@@ -144,7 +144,7 @@ int run_eplus(const char*src){
    if(!and){fprintf(stderr,"E#+ error: invalid ask statement: %s\n",s);free(c);return 1;}
    char tmp[MAXLINE];strncpy_s(tmp,sizeof(tmp),s+9,_TRUNCATE);char*save=strstr(tmp," and save answer as ");
    if(!save){free(c);return 1;}*save=0;strcpy_s(name,sizeof(name),trim(save+21));eval(trim(tmp),prompt,sizeof(prompt));
-   char answer[1024]={0};printf("%s",prompt);fflush(stdout);DWORD mode=0;HANDLE in=GetStdHandle(STD_INPUT_HANDLE);int interactive=(in!=NULL&&in!=INVALID_HANDLE_VALUE&&GetConsoleMode(in,&mode));if(interactive){if(!fgets(answer,sizeof(answer),stdin))answer[0]=0;answer[strcspn(answer,"\r\n")]=0;}else{if(!ask_input(prompt,answer,sizeof(answer)))answer[0]=0;}setv(name,answer);continue;
+   char answer[1024]={0};printf("%s",prompt);fflush(stdout);HANDLE in=GetStdHandle(STD_INPUT_HANDLE);int interactive=(in!=NULL&&in!=INVALID_HANDLE_VALUE);if(interactive){if(!fgets(answer,sizeof(answer),stdin))answer[0]=0;answer[strcspn(answer,"\r\n")]=0;}else{if(!ask_input(prompt,answer,sizeof(answer)))answer[0]=0;}setv(name,answer);continue;
   }
   if(!strncmp(s,"set ",4)){
    char*p=strstr(s+4," to ");if(!p){fprintf(stderr,"E#+ error: invalid set statement: %s\n",s);free(c);return 1;}*p=0;
