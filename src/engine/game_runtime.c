@@ -125,10 +125,12 @@ int main(int argc,char **argv) {
     Scene s;
     if(argc<2 || !load_scene(argv[1],&s)){fprintf(stderr,"E#+ Game Runtime: invalid scene.\n");return 1;}
     InitWindow(s.width,s.height,s.title);SetTargetFPS(120);DisableCursor();
-    char exeDir[MAX_PATH]={0}, shaderVs[MAX_PATH]={0}, shaderFs[MAX_PATH]={0};
-    GetModuleFileNameA(NULL,exeDir,sizeof(exeDir));
+    /* Resolve bundled shaders relative to the runtime executable without
+       depending on windows.h (which conflicts with raylib's Win32 names). */
+    char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
+    strncpy_s(exeDir,sizeof(exeDir),argv[0],_TRUNCATE);
     char *slash=strrchr(exeDir,'\\\\'); if(!slash) slash=strrchr(exeDir,'/');
-    if(slash) slash[1]=0;
+    if(slash) slash[1]=0; else exeDir[0]=0;
     snprintf(shaderVs,sizeof(shaderVs),"%seplus_realistic.vs",exeDir);
     snprintf(shaderFs,sizeof(shaderFs),"%seplus_realistic.fs",exeDir);
     Shader realistic={0};
