@@ -31,6 +31,7 @@ int main(int argc,char**argv){
     char title[256]="E#+ Game";
     char modelPath[512]={0};
     Vector3 player={0,2,6}, spawn={0,0,0};
+    int cubeCount=0;
 
     char*c=_strdup(src),*ctx=NULL,*line=strtok_s(c,"\r\n",&ctx);
     while(line){
@@ -40,6 +41,12 @@ int main(int argc,char**argv){
         else if(!strncmp(s,"window title ",13)) quoted(s+13,title,sizeof(title));
         else if(!strncmp(s,"player position ",16)) sscanf_s(s+16,"%f %f %f",&player.x,&player.y,&player.z);
         else if(!strncmp(s,"load model ",11)) quoted(s+11,modelPath,sizeof(modelPath));
+        else if(!strcmp(s,"create 100 cubes")) cubeCount=100;
+        else if(!strncmp(s,"create ",7) && strstr(s+7," cubes")){
+            int n=0; if(sscanf_s(s+7,"%d cubes",&n)==1) cubeCount=n;
+            if(cubeCount<0) cubeCount=0;
+            if(cubeCount>10000) cubeCount=10000;
+        }
         line=strtok_s(NULL,"\r\n",&ctx);
     }
     free(c);
@@ -78,7 +85,7 @@ int main(int argc,char**argv){
         if(IsKeyDown(KEY_A)){player.x-=forward.z*speed*dt;player.z+=forward.x*speed*dt;}
         if(IsKeyDown(KEY_D)){player.x+=forward.z*speed*dt;player.z-=forward.x*speed*dt;}
 
-        Vector2 mouse=GetMouseDelta(); yaw-=mouse.x*0.0025f; pitch-=mouse.y*0.0025f;
+        Vector2 mouse=GetMouseDelta(); yaw-=mouse.x*0.0025f; pitch+=mouse.y*0.0025f;
         if(pitch>1.4f)pitch=1.4f; if(pitch<-1.4f)pitch=-1.4f;
 
         camera.position=player;
@@ -93,10 +100,15 @@ int main(int argc,char**argv){
         BeginMode3D(camera);
             DrawPlane((Vector3){0,0,0},(Vector2){100,100},(Color){70,90,70,255});
             DrawGrid(100,1.0f);
-            DrawCube((Vector3){0,0.5f,0},1,1,1,(Color){90,120,180,255});
+            for(int i=0;i<cubeCount;i++){
+                int x=i%10, z=i/10;
+                Vector3 pos={(float)(x-4.5f)*2.0f,0.5f,(float)(z-4.5f)*2.0f};
+                DrawCube(pos,1,1,1,(Color){90,120,180,255});
+                DrawCubeWires(pos,1,1,1,(Color){30,40,60,255});
+            }
             if(haveModel)DrawModel(model,spawn,1.0f,WHITE);
         EndMode3D();
-        DrawRectangle(12,12,360,62,(Color){0,0,0,160});
+        DrawRectangle(12,12,390,62,(Color){0,0,0,160});
         DrawText("E#+ 3D GAME RUNTIME",24,22,20,RAYWHITE);
         DrawText("WASD = move   Mouse = look   ESC = quit",24,48,14,RAYWHITE);
         EndDrawing();
