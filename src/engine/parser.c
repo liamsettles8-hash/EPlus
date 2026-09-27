@@ -16,96 +16,96 @@ static char *trim(char*s){char*e;while(*s&&isspace((unsigned char)*s))s++;e=s+st
 static struct V*findv(const char*n){for(int i=0;i<vc;i++)if(!strcmp(vars[i].n,n))return &vars[i];return NULL;}
 static void setv(const char*n,const char*v){struct V*x=findv(n);if(!x&&vc<MAXV){x=&vars[vc++];strncpy_s(x->n,sizeof(x->n),n,_TRUNCATE);}if(x)strncpy_s(x->v,sizeof(x->v),v,_TRUNCATE);}
 static int ask_input(const char *prompt,char *out,size_t cap){
-    if(!out || cap==0)return 0;
+    if(!out || cap<2)return 0;
     out[0]=0;
 
-    static const char cls[]="EPlusAskInput";
-    static int registered=0;
-    HINSTANCE inst=GetModuleHandleA(NULL);
+    /*
+       EPlus Studio starts the engine with stdin redirected and CREATE_NO_WINDOW.
+       Therefore this function is the non-console fallback. Keep the whole UI
+       operation inside SEH so a Windows GUI failure cannot terminate EPlus.
+    */
+    __try {
+        static const char cls[]="EPlusAskInput";
+        static ATOM atom=0;
+        HINSTANCE inst=GetModuleHandleA(NULL);
 
-    if(!registered){
-        WNDCLASSA wc;
-        ZeroMemory(&wc,sizeof(wc));
-        wc.lpfnWndProc=DefWindowProcA;
-        wc.hInstance=inst;
-        wc.lpszClassName=cls;
-        wc.hCursor=LoadCursorA(NULL,IDC_ARROW);
-        if(!RegisterClassA(&wc)){
-            DWORD err=GetLastError();
-            if(err!=ERROR_CLASS_ALREADY_EXISTS)return 0;
+        if(!atom){
+            WNDCLASSA wc;
+            ZeroMemory(&wc,sizeof(wc));
+            wc.lpfnWndProc=DefWindowProcA;
+            wc.hInstance=inst;
+            wc.lpszClassName=cls;
+            wc.hCursor=LoadCursorA(NULL,IDC_ARROW);
+            atom=RegisterClassA(&wc);
+            if(!atom && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return 0;
         }
-        registered=1;
+
+        HWND w=CreateWindowExA(
+            WS_EX_DLGMODALFRAME|WS_EX_TOPMOST,cls,"E#+ Input",
+            WS_CAPTION|WS_SYSMENU|WS_VISIBLE,
+            CW_USEDEFAULT,CW_USEDEFAULT,520,180,
+            NULL,NULL,inst,NULL
+        );
+        if(!w)return 0;
+
+        HWND edit=CreateWindowExA(
+            WS_EX_CLIENTEDGE,"EDIT","",
+            WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
+            20,55,460,28,w,(HMENU)(INT_PTR)1001,inst,NULL
+        );
+        HWND ok=CreateWindowExA(
+            0,"BUTTON","OK",
+            WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
+            350,100,130,30,w,(HMENU)(INT_PTR)1002,inst,NULL
+        );
+        HWND label=CreateWindowExA(
+            0,"STATIC",prompt ? prompt : "",
+            WS_CHILD|WS_VISIBLE,
+            20,20,460,25,w,NULL,inst,NULL
+        );
+
+        if(!edit || !ok || !label){
+            if(edit)DestroyWindow(edit);
+            if(ok)DestroyWindow(ok);
+            if(label)DestroyWindow(label);
+            if(IsWindow(w))DestroyWindow(w);
+            return 0;
+        }
+
+        ShowWindow(w,SW_SHOW);
+        UpdateWindow(w);
+        SetFocus(edit);
+
+        int done=0,cancelled=0;
+        MSG msg;
+        while(!done){
+            int gm=GetMessageA(&msg,NULL,0,0);
+            if(gm<=0)break;
+
+            if(msg.message==WM_KEYDOWN && msg.wParam==VK_RETURN){
+                if(IsWindow(edit))GetWindowTextA(edit,out,(int)cap);
+                done=1;
+            }else if(msg.message==WM_KEYDOWN && msg.wParam==VK_ESCAPE){
+                cancelled=1;done=1;
+            }else if(msg.message==WM_COMMAND && LOWORD(msg.wParam)==1002){
+                if(IsWindow(edit))GetWindowTextA(edit,out,(int)cap);
+                done=1;
+            }else if(msg.message==WM_CLOSE){
+                cancelled=1;done=1;
+            }else{
+                TranslateMessage(&msg);
+                DispatchMessageA(&msg);
+            }
+        }
+
+        if(IsWindow(w))DestroyWindow(w);
+        return (!cancelled && done) ? 1 : 0;
     }
-
-    HWND w=CreateWindowExA(
-        0,cls,"E#+ Input",
-        WS_CAPTION|WS_SYSMENU|WS_VISIBLE,
-        CW_USEDEFAULT,CW_USEDEFAULT,520,180,
-        NULL,NULL,inst,NULL
-    );
-    if(!w)return 0;
-
-    HWND label=CreateWindowExA(
-        0,"STATIC",prompt ? prompt : "",
-        WS_CHILD|WS_VISIBLE,
-        20,20,460,25,w,NULL,inst,NULL
-    );
-    HWND edit=CreateWindowExA(
-        WS_EX_CLIENTEDGE,"EDIT","",
-        WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
-        20,55,460,28,w,(HMENU)(INT_PTR)1001,inst,NULL
-    );
-    HWND ok=CreateWindowExA(
-        0,"BUTTON","OK",
-        WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
-        350,100,130,30,w,(HMENU)(INT_PTR)1002,inst,NULL
-    );
-
-    if(!label || !edit || !ok){
-        if(label)DestroyWindow(label);
-        if(edit)DestroyWindow(edit);
-        if(ok)DestroyWindow(ok);
-        DestroyWindow(w);
+    __except(EXCEPTION_EXECUTE_HANDLER) {
+        out[0]=0;
+        fprintf(stderr,"E#+ error: ask user input window failed (Windows exception 0x%08lX).\n",(unsigned long)GetExceptionCode());
         return 0;
     }
-
-    /* Do not use GetStockObject/WM_SETFONT here.  The default control
-       font is safe and avoids depending on GDI objects in this dialog. */
-    SetFocus(edit);
-
-    int done=0,cancelled=0;
-    MSG msg;
-    while(!done){
-        int gm=GetMessageA(&msg,NULL,0,0);
-        if(gm<=0)break;
-
-        if(msg.message==WM_KEYDOWN && msg.wParam==VK_RETURN){
-            GetWindowTextA(edit,out,(int)cap);
-            done=1;
-            continue;
-        }
-        if(msg.message==WM_KEYDOWN && msg.wParam==VK_ESCAPE){
-            cancelled=1;
-            done=1;
-            continue;
-        }
-        if(msg.message==WM_COMMAND && LOWORD(msg.wParam)==1002){
-            GetWindowTextA(edit,out,(int)cap);
-            done=1;
-            continue;
-        }
-        if(msg.message==WM_CLOSE){
-            cancelled=1;
-            done=1;
-            continue;
-        }
-
-        TranslateMessage(&msg);
-        DispatchMessageA(&msg);
-    }
-
-    if(IsWindow(w))DestroyWindow(w);
-    return (!cancelled && done) ? 1 : 0;
 }
 
 static int is_number(const char*s){if(!*s)return 0;char*e;strtod(s,&e);return *e==0;}
