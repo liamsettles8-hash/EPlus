@@ -166,7 +166,9 @@ int main(int argc,char **argv) {
     SetWindowPosition(wx,wy);
     SetWindowFocused();
     RestoreWindow();
-    SetTargetFPS(120);\n    /* 2D elements are an overlay in every scene. A canvas scene is still 2D-only. */\n    if(s.canvas) EnableCursor(); else DisableCursor();
+    SetTargetFPS(120);
+    /* 2D elements are an overlay in every scene. A canvas scene is still 2D-only. */
+    if(s.canvas) EnableCursor(); else DisableCursor();
     /* Resolve bundled shaders relative to the runtime executable without
        depending on windows.h (which conflicts with raylib's Win32 names). */
     char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
@@ -290,5 +292,8 @@ int main(int argc,char **argv) {
         if(s.uiCount>0) render_2d(&s);
         EndDrawing();
     }
-    if(realistic.id>0)UnloadShader(realistic);\n    EnableCursor();\n    CloseWindow();\n    return 0;
+    if(realistic.id>0)UnloadShader(realistic);
+    EnableCursor();
+    CloseWindow();
+    return 0;
 }
