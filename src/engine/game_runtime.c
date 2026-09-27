@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 static char *read_file(const char *p){
     FILE*f=fopen(p,"rb"); long n; char*b;
@@ -77,8 +78,7 @@ int main(int argc,char**argv){
         if(IsKeyDown(KEY_A)){player.x-=forward.z*speed*dt;player.z+=forward.x*speed*dt;}
         if(IsKeyDown(KEY_D)){player.x+=forward.z*speed*dt;player.z-=forward.x*speed*dt;}
 
-        Vector2 mouse=GetMouseDelta();
-        yaw-=mouse.x*0.0025f; pitch-=mouse.y*0.0025f;
+        Vector2 mouse=GetMouseDelta(); yaw-=mouse.x*0.0025f; pitch-=mouse.y*0.0025f;
         if(pitch>1.4f)pitch=1.4f; if(pitch<-1.4f)pitch=-1.4f;
 
         camera.position=player;
