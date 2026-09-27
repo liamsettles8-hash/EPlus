@@ -32,7 +32,6 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"player position ",16)){float a=0,b=2,c=12;sscanf_s(s+16,"%f %f %f",&a,&b,&c);fprintf(f,"POS %s %.3f %.3f %.3f\n",player,a,b,c);}
   else if(!strncmp(s,"player speed ",13)){float v=5;sscanf_s(s+13,"%f",&v);fprintf(f,"SPEED %s %.3f\n",player,v);}
   else if(!strncmp(s,"player health ",14)){float v=100;sscanf_s(s+14,"%f",&v);fprintf(f,"HEALTH %s %.3f\n",player,v);}
-  else if(!strncmp(s,"arena size ",11)){float v=40;sscanf_s(s+11,"%f",&v);fprintf(f,"ARENA %.3f\n",v);}
   else if(!strncmp(s,"enemy create ",13)){quoted(s,q,sizeof(q));strncpy_s(enemy,sizeof(enemy),q,_TRUNCATE);fprintf(f,"ENTITY %s MODEL cube\n",enemy);}
   else if(!strncmp(s,"enemy health ",13)){float v=30;sscanf_s(s+13,"%f",&v);fprintf(f,"HEALTH %s %.3f\n",enemy,v);}
   else if(!strncmp(s,"enemy speed ",12)){float v=2;sscanf_s(s+12,"%f",&v);fprintf(f,"SPEED %s %.3f\n",enemy,v);}
@@ -40,8 +39,6 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"weapon create ",14)){quoted(s,q,sizeof(q));strncpy_s(weapon,sizeof(weapon),q,_TRUNCATE);fprintf(f,"ENTITY %s MODEL cube\n",weapon);}
   else if(!strncmp(s,"weapon damage ",14)){float v=15;sscanf_s(s+14,"%f",&v);fprintf(f,"DAMAGE %s %.3f\n",weapon,v);}
   else if(!strncmp(s,"weapon fire rate ",17)){float v=.2f;sscanf_s(s+17,"%f",&v);}
-  else if(!strncmp(s,"game spawn rate ",16)){float v=2;sscanf_s(s+16,"%f",&v);fprintf(f,"SPAWN_RATE %.3f\n",v);}
-  else if(!strncmp(s,"game win time ",15)){float v=0;sscanf_s(s+15,"%f",&v);fprintf(f,"WIN_TIME %.3f\n",v);}
   else if(!strncmp(s,"if key ",7)){
    char key[64]={0};sscanf_s(s,"if key \"%63[^\"]\" is pressed",key,(unsigned)_countof(key));
    char*p=strstr(s,"player move ");if(p){char dir[64]={0};sscanf_s(p+12,"%63s",dir,(unsigned)_countof(dir));fprintf(f,"RULE KEY %s %s MOVE %s 0\n",key,player,dir);}
@@ -51,7 +48,6 @@ static int compile_game(const char*src,const char*path){
   } else if(!strncmp(s,"load model ",11)){quoted(s,q,sizeof(q));fprintf(f,"MODEL %s %s\n",modelOwner,q);}
   line=strtok_s(NULL,"\r\n",&ctx);
  }
- if(strcmp(enemy,"Enemy"))fprintf(f,"RULE UPDATE %s CHASE %s NONE 0\n",enemy,player);
  fclose(f);free(copy);return 1;
 }
 static int launch(const char*engine,const char*game){
