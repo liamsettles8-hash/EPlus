@@ -124,7 +124,9 @@ static void render_entity(const Entity *e) {
 int main(int argc,char **argv) {
     Scene s;
     if(argc<2 || !load_scene(argv[1],&s)){fprintf(stderr,"E#+ Game Runtime: invalid scene.\n");return 1;}
-    InitWindow(s.width,s.height,s.title);\n    if(!IsWindowReady()){fprintf(stderr,"E#+ Game Runtime: raylib could not create the window.\\n");return 1;}\n    SetTargetFPS(120);DisableCursor();
+    InitWindow(s.width,s.height,s.title);
+    if(!IsWindowReady()){fprintf(stderr,"E#+ Game Runtime: raylib could not create the window.\n");return 1;}
+    SetTargetFPS(120);DisableCursor();
     /* Resolve bundled shaders relative to the runtime executable without
        depending on windows.h (which conflicts with raylib's Win32 names). */
     char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
@@ -135,9 +137,12 @@ int main(int argc,char **argv) {
     snprintf(shaderFs,sizeof(shaderFs),"%seplus_realistic.fs",exeDir);
     Shader realistic={0};
     if(!strcmp(s.shader,"realistic")) realistic=LoadShader(FileExists(shaderVs)?shaderVs:NULL,FileExists(shaderFs)?shaderFs:NULL);
-    int locTime=GetShaderLocation(realistic,"uTime");
-    int locCamera=GetShaderLocation(realistic,"uCameraPos");
-    int locSunDir=GetShaderLocation(realistic,"uSunDir");
+    int locTime=-1,locCamera=-1,locSunDir=-1;
+    if(realistic.id>0){
+        locTime=GetShaderLocation(realistic,"uTime");
+        locCamera=GetShaderLocation(realistic,"uCameraPos");
+        locSunDir=GetShaderLocation(realistic,"uSunDir");
+    }
     float shaderTime=0;
     int player=-1;
     for(int i=0;i<s.entityCount;i++)if(s.entities[i].controllable){player=i;break;}
@@ -195,9 +200,11 @@ int main(int argc,char **argv) {
         }
         float sunDir[3]={-0.45f,-0.85f,-0.25f};
         float camPos[3]={cam.position.x,cam.position.y,cam.position.z};
-        SetShaderValue(realistic,locTime,&shaderTime,SHADER_UNIFORM_FLOAT);
-        SetShaderValue(realistic,locCamera,camPos,SHADER_UNIFORM_VEC3);
-        SetShaderValue(realistic,locSunDir,sunDir,SHADER_UNIFORM_VEC3);
+        if(realistic.id>0){
+            if(locTime>=0)SetShaderValue(realistic,locTime,&shaderTime,SHADER_UNIFORM_FLOAT);
+            if(locCamera>=0)SetShaderValue(realistic,locCamera,camPos,SHADER_UNIFORM_VEC3);
+            if(locSunDir>=0)SetShaderValue(realistic,locSunDir,sunDir,SHADER_UNIFORM_VEC3);
+        }
         BeginDrawing();ClearBackground((Color){18,22,30,255});
         BeginMode3D(cam);
         if(realistic.id>0)BeginShaderMode(realistic);
