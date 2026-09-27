@@ -29,8 +29,8 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"window title ",13)){quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
   else if(!strncmp(s,"2d canvas",9)){fprintf(f,"CANVAS 1\n");}
   else if(!strncmp(s,"2d background ",14)){quoted(s,q,sizeof(q));fprintf(f,"BACKGROUND %s\n",q);}
-  else if(!strncmp(s,"2d text ",9)){char n[128]={0};sscanf_s(s+9,"%127s",(unsigned)_countof(n));quoted(s,q,sizeof(q));fprintf(f,"TEXT %s %s\n",n,q);}
-  else if(!strncmp(s,"2d button ",11)){char n[128]={0};sscanf_s(s+11,"%127s",(unsigned)_countof(n));quoted(s,q,sizeof(q));fprintf(f,"BUTTON %s %s\n",n,q);}
+  else if(!strncmp(s,"2d text ",9)){char n[128]={0};sscanf_s(s+9,"%127s",n,(unsigned)_countof(n));quoted(s,q,sizeof(q));fprintf(f,"TEXT %s %s\n",n,q);}
+  else if(!strncmp(s,"2d button ",11)){char n[128]={0};sscanf_s(s+11,"%127s",n,(unsigned)_countof(n));quoted(s,q,sizeof(q));fprintf(f,"BUTTON %s %s\n",n,q);}
   else if(!strncmp(s,"2d position ",12)){char n[128]={0};float x=0,y=0;sscanf_s(s+12,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_POS %s %.1f %.1f\n",n,x,y);}
   else if(!strncmp(s,"2d size ",8)){char n[128]={0};float x=120,y=40;sscanf_s(s+8,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_SIZE %s %.1f %.1f\n",n,x,y);}
   else if(!strncmp(s,"if button ",10)){char n[128]={0};sscanf_s(s,"if button \"%127[^\"]\" is clicked",n,(unsigned)_countof(n));fprintf(f,"RULE BUTTON %s CLICK 0\n",n);}
