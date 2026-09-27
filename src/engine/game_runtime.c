@@ -126,6 +126,14 @@ int main(int argc,char **argv) {
     if(argc<2 || !load_scene(argv[1],&s)){fprintf(stderr,"E#+ Game Runtime: invalid scene.\n");return 1;}
     InitWindow(s.width,s.height,s.title);
     if(!IsWindowReady()){fprintf(stderr,"E#+ Game Runtime: raylib could not create the window.\n");return 1;}
+    /* Keep the game window visible and centered on the current monitor. */
+    int monitor=GetCurrentMonitor();
+    int mw=GetMonitorWidth(monitor), mh=GetMonitorHeight(monitor);
+    int wx=(mw-s.width)/2, wy=(mh-s.height)/2;
+    if(wx<0)wx=0; if(wy<0)wy=0;
+    SetWindowPosition(wx,wy);
+    SetWindowFocused();
+    RestoreWindow();
     SetTargetFPS(120);DisableCursor();
     /* Resolve bundled shaders relative to the runtime executable without
        depending on windows.h (which conflicts with raylib's Win32 names). */
