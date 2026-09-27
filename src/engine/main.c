@@ -17,36 +17,47 @@ static int is_game_source(const char*s){
  if(*p=='\n')p++;}return 0;
 }
 static int compile_game(const char*src,const char*path){
- char*copy=(char*)malloc(strlen(src)+1);if(!copy)return 0;strcpy(copy,src);FILE*f=fopen(path,"w");if(!f){free(copy);return 0;}fprintf(f,"EPLUS_SCENE 2\n");
- char*ctx=NULL,*line=strtok_s(copy,"\r\n",&ctx);while(line){char*s=trim(line);
-  if(!strncmp(s,"game ",5)){char q[256];quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
+ char*copy=(char*)malloc(strlen(src)+1);if(!copy)return 0;strcpy(copy,src);
+ FILE*f=fopen(path,"w");if(!f){free(copy);return 0;}fprintf(f,"EPLUS_SCENE 3\n");
+ char*ctx=NULL,*line=strtok_s(copy,"\r\n",&ctx);
+ while(line){
+  char*s=trim(line),q[256];
+  if(!strncmp(s,"game ",5)){quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
   else if(!strncmp(s,"window width ",13)){int v=1280;sscanf_s(s+13,"%d",&v);fprintf(f,"WINDOW_WIDTH %d\n",v);}
   else if(!strncmp(s,"window height ",14)){int v=720;sscanf_s(s+14,"%d",&v);fprintf(f,"WINDOW_HEIGHT %d\n",v);}
-  else if(!strncmp(s,"window title ",13)){char q[256];quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
+  else if(!strncmp(s,"window title ",13)){quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
   else if(!strncmp(s,"camera ",7))fprintf(f,"CAMERA %s\n",strstr(s,"first person")?"first_person":"free");
-  else if(!strncmp(s,"player create ",14)){char q[128];quoted(s,q,sizeof(q));fprintf(f,"PLAYER_NAME %s\n",q);}
-  else if(!strncmp(s,"player position ",16)){float a=0,b=2,c=12;sscanf_s(s+16,"%f %f %f",&a,&b,&c);fprintf(f,"PLAYER_POS %.3f %.3f %.3f\n",a,b,c);}
-  else if(!strncmp(s,"player speed ",13)){float v=5;sscanf_s(s+13,"%f",&v);fprintf(f,"PLAYER_SPEED %.3f\n",v);}
-  else if(!strncmp(s,"player health ",14)){float v=100;sscanf_s(s+14,"%f",&v);fprintf(f,"PLAYER_HEALTH %.3f\n",v);}
+  else if(!strncmp(s,"player create ",14)){quoted(s,q,sizeof(q));fprintf(f,"ENTITY %s MODEL cube\nCONTROL %s\n",q,q);}
+  else if(!strncmp(s,"player position ",16)){float a=0,b=2,c=12;sscanf_s(s+16,"%f %f %f",&a,&b,&c);fprintf(f,"POS Hero %.3f %.3f %.3f\n",a,b,c);}
+  else if(!strncmp(s,"player speed ",13)){float v=5;sscanf_s(s+13,"%f",&v);fprintf(f,"SPEED Hero %.3f\n",v);}
+  else if(!strncmp(s,"player health ",14)){float v=100;sscanf_s(s+14,"%f",&v);fprintf(f,"HEALTH Hero %.3f\n",v);}
   else if(!strncmp(s,"arena size ",11)){float v=40;sscanf_s(s+11,"%f",&v);fprintf(f,"ARENA %.3f\n",v);}
-  else if(!strncmp(s,"enemy create ",13)){char q[128];quoted(s,q,sizeof(q));fprintf(f,"ENEMY_NAME %s\n",q);}
-  else if(!strncmp(s,"enemy health ",13)){float v=30;sscanf_s(s+13,"%f",&v);fprintf(f,"ENEMY_HEALTH %.3f\n",v);}
-  else if(!strncmp(s,"enemy speed ",12)){float v=2;sscanf_s(s+12,"%f",&v);fprintf(f,"ENEMY_SPEED %.3f\n",v);}
-  else if(!strncmp(s,"enemy damage ",13)){float v=10;sscanf_s(s+13,"%f",&v);fprintf(f,"ENEMY_DAMAGE %.3f\n",v);}
-  else if(!strncmp(s,"weapon create ",14)){char q[128];quoted(s,q,sizeof(q));fprintf(f,"WEAPON_NAME %s\n",q);}
-  else if(!strncmp(s,"weapon damage ",14)){float v=15;sscanf_s(s+14,"%f",&v);fprintf(f,"WEAPON_DAMAGE %.3f\n",v);}
-  else if(!strncmp(s,"weapon fire rate ",17)){float v=.2f;sscanf_s(s+17,"%f",&v);fprintf(f,"WEAPON_RATE %.3f\n",v);}
+  else if(!strncmp(s,"enemy create ",13)){quoted(s,q,sizeof(q));fprintf(f,"ENTITY %s MODEL cube\n",q);}
+  else if(!strncmp(s,"enemy health ",13)){float v=30;sscanf_s(s+13,"%f",&v);fprintf(f,"HEALTH CubeEnemy %.3f\n",v);}
+  else if(!strncmp(s,"enemy speed ",12)){float v=2;sscanf_s(s+12,"%f",&v);fprintf(f,"SPEED CubeEnemy %.3f\n",v);}
+  else if(!strncmp(s,"enemy damage ",13)){float v=10;sscanf_s(s+13,"%f",&v);fprintf(f,"DAMAGE CubeEnemy %.3f\n",v);}
+  else if(!strncmp(s,"weapon create ",14)){quoted(s,q,sizeof(q));fprintf(f,"ENTITY %s MODEL cube\n",q);}
+  else if(!strncmp(s,"weapon damage ",14)){float v=15;sscanf_s(s+14,"%f",&v);fprintf(f,"DAMAGE Blaster %.3f\n",v);}
+  else if(!strncmp(s,"weapon fire rate ",17)){float v=.2f;sscanf_s(s+17,"%f",&v);}
   else if(!strncmp(s,"game spawn rate ",16)){float v=2;sscanf_s(s+16,"%f",&v);fprintf(f,"SPAWN_RATE %.3f\n",v);}
-  else if(!strncmp(s,"game max enemies ",18)){int v=20;sscanf_s(s+18,"%d",&v);fprintf(f,"MAX_ENEMIES %d\n",v);}
-  else if(!strncmp(s,"game win score ",15)){int v=1000;sscanf_s(s+15,"%d",&v);fprintf(f,"WIN_SCORE %d\n",v);}
+  else if(!strncmp(s,"game max enemies ",18)){int v=20;sscanf_s(s+18,"%d",&v);}
+  else if(!strncmp(s,"game win score ",15)){int v=1000;sscanf_s(s+15,"%d",&v);}
   else if(!strncmp(s,"game win time ",15)){float v=0;sscanf_s(s+15,"%f",&v);fprintf(f,"WIN_TIME %.3f\n",v);}
-  else if(!strncmp(s,"create ",7)&&strstr(s," cubes")){int v=0;sscanf_s(s+7,"%d",&v);fprintf(f,"CUBES %d\n",v);}
-  else if(!strncmp(s,"if key ",7)){fprintf(f,"ACTION %s\n",s+3);}
-  else if(!strncmp(s,"if mouse ",9)){fprintf(f,"ACTION %s\n",s+3);}
-  else if(!strncmp(s,"player move ",12)){fprintf(f,"ACTION %s\n",s);}
-  else if(!strncmp(s,"weapon fire",11)){fprintf(f,"ACTION %s\n",s);}
-  else if(!strncmp(s,"load model ",11)){char q[260];quoted(s,q,sizeof(q));fprintf(f,"MODEL %s\n",q);}
-  line=strtok_s(NULL,"\r\n",&ctx);}
+  else if(!strncmp(s,"if key ",7)){
+    char key[64]={0};sscanf_s(s,"if key "%63[^"]" is pressed",key,(unsigned)_countof(key));
+    char *p=strstr(s,"player move ");if(p){char dir[64]={0};sscanf_s(p+12,"%63s",dir,(unsigned)_countof(dir));fprintf(f,"RULE KEY %s MOVE %s %s 0\n",key,"Hero",dir);}
+  }
+  else if(!strncmp(s,"if mouse ",9)){
+    char button[64]={0};sscanf_s(s,"if mouse button "%63[^"]" is pressed",button,(unsigned)_countof(button));
+    fprintf(f,"RULE MOUSE %s FIRE Hero Blaster 0\n",button);
+  }
+  else if(!strncmp(s,"player move ",12)){/* consumed by the key rule above */}
+  else if(!strncmp(s,"weapon fire",11)){/* consumed by the mouse rule above */}
+  else if(!strncmp(s,"load model ",11)){quoted(s,q,sizeof(q));fprintf(f,"MODEL %s %s\n","Hero",q);}
+  line=strtok_s(NULL,"\r\n",&ctx);
+ }
+ /* Compatibility behavior is compiled as generic rules, not runtime game logic. */
+ fprintf(f,"RULE UPDATE CubeEnemy CHASE Hero NONE 0\n");
  fclose(f);free(copy);return 1;
 }
 static int launch(const char*engine,const char*game){
