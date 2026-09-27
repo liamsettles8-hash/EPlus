@@ -1,0 +1,1 @@
+window.EPLUS_CONFIG={owner:"YOUR_GITHUB_USERNAME",repo:"EPlus",asset:"EPlusStudio-Setup.exe"};
