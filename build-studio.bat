@@ -30,7 +30,11 @@ if not exist third_party\raylib (
   goto :error
 )
 
-cmake -S third_party\raylib -B build\raylib -A x64 -DBUILD_SHARED_LIBS=OFF -DBUILD_EXAMPLES=OFF
+rem Reconfigure raylib with the same dynamic MSVC CRT used by the E#+ runtime.
+rem This prevents UCRT/MSVCRT import conflicts when linking raylib statically.
+if exist build\raylib rmdir /s /q build\raylib
+
+cmake -S third_party\raylib -B build\raylib -A x64 -DBUILD_SHARED_LIBS=OFF -DBUILD_EXAMPLES=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL
 if errorlevel 1 goto :error
 
 cmake --build build\raylib --config Release
@@ -43,7 +47,7 @@ if not exist "%RAYLIB_LIB%" (
   goto :error
 )
 
-cl /nologo /O2 /W3 /EHsc /favor:AMD64 /Ithird_party\raylib\src src\engine\game_runtime.c /Fe:build\EPlusGameRuntime.exe "%RAYLIB_LIB%" opengl32.lib gdi32.lib winmm.lib user32.lib shell32.lib
+cl /nologo /O2 /W3 /EHsc /MD /Ithird_party\raylib\src src\engine\game_runtime.c /Fe:build\EPlusGameRuntime.exe "%RAYLIB_LIB%" opengl32.lib gdi32.lib winmm.lib user32.lib shell32.lib
 if errorlevel 1 goto :error
 
 echo [3/3] Building E#+ Studio (x64)...
