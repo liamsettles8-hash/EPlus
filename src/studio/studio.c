@@ -205,7 +205,7 @@ static DWORD WINAPI run_worker(LPVOID param){
     si.dwFlags=STARTF_USESTDHANDLES;
     si.hStdOutput=w;
     si.hStdError=w;
-    si.hStdInput=GetStdHandle(STD_INPUT_HANDLE);
+    si.hStdInput=NULL;
 
     wchar_t cl[2*MAX_PATH];
     wcscpy_s(cl,2*MAX_PATH,cmd);
