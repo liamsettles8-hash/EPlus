@@ -126,7 +126,7 @@ final class EPlusRuntime: ObservableObject {
         guard let range = rest.range(of: " to ") else { return }
         let name = rest[..<range.lowerBound].trimmingCharacters(in: .whitespaces)
         let value = rest[range.upperBound...].trimmingCharacters(in: .whitespaces)
-        variables[String(name)] = interpolate(value.hasPrefix(""") ? quoted(value) : String(value))
+        variables[String(name)] = interpolate(value.hasPrefix("\"") ? quoted(value) : String(value))
     }
 
     private func interpolate(_ value: String) -> String {
@@ -138,17 +138,17 @@ final class EPlusRuntime: ObservableObject {
     }
 
     private func quoted(_ line: String) -> String {
-        guard let first = line.firstIndex(of: """),
-              let last = line.lastIndex(of: """), last > first else { return "" }
+        guard let first = line.firstIndex(of: "\""),
+              let last = line.lastIndex(of: "\""), last > first else { return "" }
         return String(line[line.index(after: first)..<last])
     }
 
     private func quotedParts(_ line: String) -> [String] {
         var result: [String] = []
         var rest = line
-        while let first = rest.firstIndex(of: """) {
+        while let first = rest.firstIndex(of: "\"") {
             rest = String(rest[rest.index(after: first)...])
-            guard let last = rest.firstIndex(of: """) else { break }
+            guard let last = rest.firstIndex(of: "\"") else { break }
             result.append(String(rest[..<last]))
             rest = String(rest[rest.index(after: last)...])
         }
