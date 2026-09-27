@@ -20,7 +20,7 @@ if errorlevel 1 goto :error
 if not exist build mkdir build
 
 echo [1/3] Building E#+ engine (x64)...
-cl /nologo /O2 /W3 /EHsc /favor:AMD64 src\engine\main.c src\engine\lexer.c src\engine\parser.c /Fe:build\eplus-engine.exe user32.lib
+cl /nologo /O2 /W3 /EHsc /favor:AMD64 src\engine\main.c src\engine\lexer.c src\engine\parser.c /Fe:build\eplus-engine.exe user32.lib gdi32.lib
 if errorlevel 1 goto :error
 
 echo [2/3] Building E#+ 3D runtime (x64)...
