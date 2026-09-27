@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
+#include <windows.h>
 
 #define MAX_ENTITIES 256
 #define MAX_RULES 256
@@ -121,6 +123,17 @@ int main(int argc,char **argv) {
     Scene s;
     if(argc<2 || !load_scene(argv[1],&s)){fprintf(stderr,"E#+ Game Runtime: invalid scene.\n");return 1;}
     InitWindow(s.width,s.height,s.title);SetTargetFPS(120);DisableCursor();
+    char exeDir[MAX_PATH]={0}, shaderVs[MAX_PATH]={0}, shaderFs[MAX_PATH]={0};
+    GetModuleFileNameA(NULL,exeDir,sizeof(exeDir));
+    char *slash=strrchr(exeDir,'\\\\'); if(!slash) slash=strrchr(exeDir,'/');
+    if(slash) slash[1]=0;
+    snprintf(shaderVs,sizeof(shaderVs),"%seplus_realistic.vs",exeDir);
+    snprintf(shaderFs,sizeof(shaderFs),"%seplus_realistic.fs",exeDir);
+    Shader realistic=LoadShader(FileExists(shaderVs)?shaderVs:NULL,FileExists(shaderFs)?shaderFs:NULL);
+    int locTime=GetShaderLocation(realistic,"uTime");
+    int locCamera=GetShaderLocation(realistic,"uCameraPos");
+    int locSunDir=GetShaderLocation(realistic,"uSunDir");
+    float shaderTime=0;
     int player=-1;
     for(int i=0;i<s.entityCount;i++)if(s.entities[i].controllable){player=i;break;}
     Camera3D cam={0};
@@ -128,7 +141,7 @@ int main(int argc,char **argv) {
     cam.up=(Vector3){0,1,0};cam.fovy=70;cam.projection=CAMERA_PERSPECTIVE;
     float yaw=-90,pitch=0,elapsed=0;
     while(!WindowShouldClose()){
-        float dt=GetFrameTime();elapsed+=dt;
+        float dt=GetFrameTime();elapsed+=dt;shaderTime+=dt;
         if(player>=0 && s.entities[player].alive){
             Entity *p=&s.entities[player];
             Vector2 md=GetMouseDelta();yaw+=md.x*.10f;pitch-=md.y*.10f;
@@ -175,11 +188,18 @@ int main(int argc,char **argv) {
                 if(len>1.3f)s.entities[who].pos=Vector3Add(s.entities[who].pos,Vector3Scale(Vector3Normalize(d),s.entities[who].speed*dt));
             }
         }
+        float sunDir[3]={-0.45f,-0.85f,-0.25f};
+        float camPos[3]={cam.position.x,cam.position.y,cam.position.z};
+        SetShaderValue(realistic,locTime,&shaderTime,SHADER_UNIFORM_FLOAT);
+        SetShaderValue(realistic,locCamera,camPos,SHADER_UNIFORM_VEC3);
+        SetShaderValue(realistic,locSunDir,sunDir,SHADER_UNIFORM_VEC3);
         BeginDrawing();ClearBackground((Color){18,22,30,255});
         BeginMode3D(cam);
+        if(realistic.id>0)BeginShaderMode(realistic);
         for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i]);
+        if(realistic.id>0)EndShaderMode();
         EndMode3D();
         EndDrawing();
     }
-    EnableCursor();CloseWindow();return 0;
+    if(realistic.id>0)UnloadShader(realistic); EnableCursor();CloseWindow();return 0;
 }
