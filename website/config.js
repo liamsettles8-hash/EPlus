@@ -1,1 +1,1 @@
-window.EPLUS_CONFIG={owner:"YOUR_GITHUB_USERNAME",repo:"EPlus",asset:"EPlusStudio-Setup.exe"};
+window.EPLUS_CONFIG={owner:"liamsettles8-hash",repo:"EPlus",asset:"EPlusStudio-Setup.exe",discord:"https://discord.gg/dErnJ3Hcmr"};
