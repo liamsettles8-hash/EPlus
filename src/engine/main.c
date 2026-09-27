@@ -13,7 +13,7 @@ static void quoted(const char*s,char*out,size_t cap){const char*a=strchr(s,'"');
 
 static int is_game_source(const char*s){
  const char*p=s;while(*p){char line[2048];size_t n=0;while(*p&&*p!='\n'&&n+1<sizeof(line))line[n++]=*p++;line[n]=0;char*q=trim(line);
- if(!strncmp(q,"game ",5)||!strncmp(q,"window ",7)||!strncmp(q,"camera ",7)||!strncmp(q,"player ",7)||!strncmp(q,"arena ",6)||!strncmp(q,"enemy ",6)||!strncmp(q,"weapon ",7)||!strncmp(q,"game spawn ",11)||!strncmp(q,"game max ",9)||!strncmp(q,"game win ",9)||!strncmp(q,"create ",7)||!strncmp(q,"load model ",11)||!strncmp(q,"spawn model ",12))return 1;
+ if(!strncmp(q,"game ",5)||!strncmp(q,"window ",7)||!strncmp(q,"camera ",7)||!strncmp(q,"player ",7)||!strncmp(q,"arena ",6)||!strncmp(q,"enemy ",6)||!strncmp(q,"weapon ",7)||!strncmp(q,"game spawn ",11)||!strncmp(q,"game max ",9)||!strncmp(q,"game win ",9)||!strncmp(q,"create ",7)||!strncmp(q,"load model ",11)||!strncmp(q,"spawn model ",12)||!strncmp(q,"2d ",3))return 1;
  if(*p=='\n')p++;}return 0;
 }
 static int compile_game(const char*src,const char*path){
@@ -27,6 +27,13 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"window width ",13)){int v=1280;sscanf_s(s+13,"%d",&v);fprintf(f,"WINDOW_WIDTH %d\n",v);}
   else if(!strncmp(s,"window height ",14)){int v=720;sscanf_s(s+14,"%d",&v);fprintf(f,"WINDOW_HEIGHT %d\n",v);}
   else if(!strncmp(s,"window title ",13)){quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
+  else if(!strncmp(s,"2d canvas",9)){fprintf(f,"CANVAS 1\n");}
+  else if(!strncmp(s,"2d background ",14)){quoted(s,q,sizeof(q));fprintf(f,"BACKGROUND %s\n",q);}
+  else if(!strncmp(s,"2d text ",9)){char n[128]={0};sscanf_s(s+9,"%127s",(unsigned)_countof(n));quoted(s,q,sizeof(q));fprintf(f,"TEXT %s %s\n",n,q);}
+  else if(!strncmp(s,"2d button ",11)){char n[128]={0};sscanf_s(s+11,"%127s",(unsigned)_countof(n));quoted(s,q,sizeof(q));fprintf(f,"BUTTON %s %s\n",n,q);}
+  else if(!strncmp(s,"2d position ",12)){char n[128]={0};float x=0,y=0;sscanf_s(s+12,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_POS %s %.1f %.1f\n",n,x,y);}
+  else if(!strncmp(s,"2d size ",8)){char n[128]={0};float x=120,y=40;sscanf_s(s+8,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_SIZE %s %.1f %.1f\n",n,x,y);}
+  else if(!strncmp(s,"if button ",10)){char n[128]={0};sscanf_s(s,"if button \"%127[^\"]\" is clicked",n,(unsigned)_countof(n));fprintf(f,"RULE BUTTON %s CLICK 0\n",n);}
   else if(!strncmp(s,"shader ",7)){char name[64]={0};sscanf_s(s+7,"%63s",name,(unsigned)_countof(name));fprintf(f,"SHADER %s\n",name);}
   else if(!strncmp(s,"camera ",7))fprintf(f,"CAMERA %s\n",strstr(s,"first person")?"first_person":"free");
   else if(!strncmp(s,"player create ",14)){quoted(s,q,sizeof(q));strncpy_s(player,sizeof(player),q,_TRUNCATE);fprintf(f,"ENTITY %s MODEL cube\nCONTROL %s\n",player,player);strncpy_s(modelOwner,sizeof(modelOwner),player,_TRUNCATE);}
