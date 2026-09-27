@@ -80,7 +80,7 @@ static int load_scene(const char *path,Scene *s) {
         if(sscanf_s(line,"SHADER %63s",s->shader,(unsigned)_countof(s->shader))==1) continue;
         if(!strncmp(line,"CANVAS ",7)){s->canvas=1;continue;}
         if(!strncmp(line,"BACKGROUND ",11)){char v[32]={0};if(sscanf_s(line+11,"%31s",v,(unsigned)_countof(v))==1)s->background=parse_hex(v);continue;}
-        if(!strncmp(line,"TEXT ",5)){char n[128]={0},t[256]={0};if(sscanf_s(line,"TEXT %127s %255[^\\r\\n]",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2){UIElement*u=add_ui(s,n,"text");if(u)strncpy_s(u->text,sizeof(u->text),t,_TRUNCATE);}continue;}
+        if(!strncmp(line,"TEXT ",5)){char n[128]={0},t[256]={0};if(sscanf_s(line,"TEXT %127s %255[^\r\n]",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2){UIElement*u=add_ui(s,n,"text");if(u)strncpy_s(u->text,sizeof(u->text),t,_TRUNCATE);}continue;}
         if(!strncmp(line,"BUTTON ",7)){char n[128]={0},t[256]={0};if(sscanf_s(line,"BUTTON %127s %255[^\\r\\n]",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2){UIElement*u=add_ui(s,n,"button");if(u)strncpy_s(u->text,sizeof(u->text),t,_TRUNCATE);}continue;}
         if(!strncmp(line,"UI_POS ",7)){char n[128]={0};if(sscanf_s(line,"UI_POS %127s %f %f",n,(unsigned)_countof(n),&x,&y)==3){int i=find_ui(s,n);if(i>=0){s->ui[i].x=x;s->ui[i].y=y;}}continue;}
         if(!strncmp(line,"UI_SIZE ",8)){char n[128]={0};if(sscanf_s(line,"UI_SIZE %127s %f %f",n,(unsigned)_countof(n),&x,&y)==3){int i=find_ui(s,n);if(i>=0){s->ui[i].w=x;s->ui[i].h=y;}}continue;}
