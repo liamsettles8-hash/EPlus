@@ -27,6 +27,7 @@ typedef struct {
     int width, height;
     float winTime;
     char title[256];
+    char shader[64];
     Entity entities[MAX_ENTITIES];
     int entityCount;
     Rule rules[MAX_RULES];
@@ -61,11 +62,13 @@ static int load_scene(const char *path,Scene *s) {
     if(!f)return 0;
     memset(s,0,sizeof(*s)); s->width=1280;s->height=720;
     strcpy_s(s->title,sizeof(s->title),"E#+ Game");
+    strcpy_s(s->shader,sizeof(s->shader),"none");
     while(fgets(line,sizeof(line),f)) {
         char a[256]={0},b[256]={0},c[256]={0}; float x,y,z;
         if(sscanf_s(line,"WINDOW_WIDTH %d",&s->width)==1) continue;
         if(sscanf_s(line,"WINDOW_HEIGHT %d",&s->height)==1) continue;
         if(sscanf_s(line,"TITLE %255[^\r\n]",s->title,(unsigned)_countof(s->title))==1) continue;
+        if(sscanf_s(line,"SHADER %63s",s->shader,(unsigned)_countof(s->shader))==1) continue;
         if(sscanf_s(line,"ENTITY %127s",a,(unsigned)_countof(a))==1) {
             Entity *e=add_entity(s,a); if(!e)continue;
             if(sscanf_s(line,"ENTITY %127s MODEL %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2)strncpy_s(e->model,sizeof(e->model),b,_TRUNCATE);
@@ -129,7 +132,8 @@ int main(int argc,char **argv) {
     if(slash) slash[1]=0;
     snprintf(shaderVs,sizeof(shaderVs),"%seplus_realistic.vs",exeDir);
     snprintf(shaderFs,sizeof(shaderFs),"%seplus_realistic.fs",exeDir);
-    Shader realistic=LoadShader(FileExists(shaderVs)?shaderVs:NULL,FileExists(shaderFs)?shaderFs:NULL);
+    Shader realistic={0};
+    if(!strcmp(s.shader,"realistic")) realistic=LoadShader(FileExists(shaderVs)?shaderVs:NULL,FileExists(shaderFs)?shaderFs:NULL);
     int locTime=GetShaderLocation(realistic,"uTime");
     int locCamera=GetShaderLocation(realistic,"uCameraPos");
     int locSunDir=GetShaderLocation(realistic,"uSunDir");
