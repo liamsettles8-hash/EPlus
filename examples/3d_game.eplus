@@ -1,0 +1,13 @@
+# E#+ 3D game example
+game "E#+ 3D Demo"
+window width 1280 height 720
+window title "E#+ 3D Demo"
+camera first person
+player create "Hero"
+player position 0 2 6
+load model "assets/player.obj"
+while game is running
+    if key "W" is pressed
+        player move forward 0.1
+    end
+end
