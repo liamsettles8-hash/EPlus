@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <windows.h>
 #define MAXV 256
 #define MAXLINE 4096
 
@@ -14,6 +15,37 @@ static char *dupstr(const char*s){size_t n=strlen(s)+1;char*p=(char*)malloc(n);i
 static char *trim(char*s){char*e;while(*s&&isspace((unsigned char)*s))s++;e=s+strlen(s);while(e>s&&isspace((unsigned char)e[-1]))--e;*e=0;return s;}
 static struct V*findv(const char*n){for(int i=0;i<vc;i++)if(!strcmp(vars[i].n,n))return &vars[i];return NULL;}
 static void setv(const char*n,const char*v){struct V*x=findv(n);if(!x&&vc<MAXV){x=&vars[vc++];strncpy_s(x->n,sizeof(x->n),n,_TRUNCATE);}if(x)strncpy_s(x->v,sizeof(x->v),v,_TRUNCATE);}
+static int ask_input(const char *prompt,char *out,size_t cap){
+    static const char cls[]="EPlusAskInput";
+    static int registered=0;
+    if(!registered){
+        WNDCLASSA wc={0};wc.lpfnWndProc=DefWindowProcA;wc.hInstance=GetModuleHandleA(NULL);wc.lpszClassName=cls;wc.hCursor=LoadCursor(NULL,IDC_ARROW);
+        if(!RegisterClassA(&wc) && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return 0;
+        registered=1;
+    }
+    HWND w=CreateWindowExA(WS_EX_DLGMODALFRAME,cls,"E#+ Input",WS_CAPTION|WS_SYSMENU|WS_VISIBLE,
+        CW_USEDEFAULT,CW_USEDEFAULT,520,180,NULL,NULL,GetModuleHandleA(NULL),NULL);
+    if(!w)return 0;
+    HWND label=CreateWindowA("STATIC",prompt,WS_CHILD|WS_VISIBLE,20,20,460,25,w,NULL,NULL,NULL);
+    HWND edit=CreateWindowExA(WS_EX_CLIENTEDGE,"EDIT","",WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
+        20,55,460,28,w,(HMENU)1001,NULL,NULL);
+    HWND ok=CreateWindowA("BUTTON","OK",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
+        350,100,130,30,w,(HMENU)1002,NULL,NULL);
+    (void)label;(void)ok;
+    SendMessageA(edit,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
+    SendMessageA(w,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
+    SetFocus(edit);
+    int done=0,cancelled=0;MSG msg;
+    while(!done&&GetMessageA(&msg,NULL,0,0)>0){
+        if(msg.message==WM_KEYDOWN&&msg.wParam==VK_RETURN){GetWindowTextA(edit,out,(int)cap);done=1;break;}
+        if(msg.message==WM_KEYDOWN&&msg.wParam==VK_ESCAPE){cancelled=1;done=1;break;}
+        if(msg.message==WM_COMMAND&&LOWORD(msg.wParam)==1002){GetWindowTextA(edit,out,(int)cap);done=1;break;}
+        if(msg.message==WM_CLOSE){cancelled=1;done=1;break;}
+        TranslateMessage(&msg);DispatchMessageA(&msg);
+    }
+    DestroyWindow(w);
+    return cancelled?0:1;
+}
 
 static int is_number(const char*s){if(!*s)return 0;char*e;strtod(s,&e);return *e==0;}
 static void eval(const char*e,char*out,size_t cap){
@@ -47,7 +79,7 @@ int run_eplus(const char*src){
    if(!and){fprintf(stderr,"E#+ error: invalid ask statement: %s\n",s);free(c);return 1;}
    char tmp[MAXLINE];strncpy_s(tmp,sizeof(tmp),s+9,_TRUNCATE);char*save=strstr(tmp," and save answer as ");
    if(!save){free(c);return 1;}*save=0;strcpy_s(name,sizeof(name),trim(save+21));eval(trim(tmp),prompt,sizeof(prompt));
-   char answer[1024];printf("%s",prompt);if(!fgets(answer,sizeof(answer),stdin))answer[0]=0;answer[strcspn(answer,"\r\n")]=0;setv(name,answer);continue;
+   char answer[1024]={0};printf("%s",prompt);fflush(stdout);DWORD mode=0;HANDLE in=GetStdHandle(STD_INPUT_HANDLE);int interactive=(in!=NULL&&in!=INVALID_HANDLE_VALUE&&GetConsoleMode(in,&mode));if(interactive){if(!fgets(answer,sizeof(answer),stdin))answer[0]=0;answer[strcspn(answer,"\r\n")]=0;}else{if(!ask_input(prompt,answer,sizeof(answer)))answer[0]=0;}setv(name,answer);continue;
   }
   if(!strncmp(s,"set ",4)){
    char*p=strstr(s+4," to ");if(!p){fprintf(stderr,"E#+ error: invalid set statement: %s\n",s);free(c);return 1;}*p=0;
