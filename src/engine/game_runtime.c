@@ -9,6 +9,9 @@
 
 #define MAX_ENTITIES 256
 #define MAX_RULES 256
+#define MAX_UI 256
+
+typedef struct { char name[128], type[16], text[256]; float x,y,w,h; } UIElement;
 
 typedef struct {
     char name[128], model[128];
@@ -31,8 +34,15 @@ typedef struct {
     int entityCount;
     Rule rules[MAX_RULES];
     int ruleCount;
+    int canvas;
+    Color background;
+    UIElement ui[MAX_UI];
+    int uiCount;
 } Scene;
 
+static int find_ui(Scene *s,const char *name){for(int i=0;i<s->uiCount;i++)if(!strcmp(s->ui[i].name,name))return i;return -1;}
+static UIElement *add_ui(Scene *s,const char *name,const char *type){if(s->uiCount>=MAX_UI)return NULL;UIElement*u=&s->ui[s->uiCount++];memset(u,0,sizeof(*u));strncpy_s(u->name,sizeof(u->name),name,_TRUNCATE);strncpy_s(u->type,sizeof(u->type),type,_TRUNCATE);u->w=120;u->h=40;return u;}
+static Color parse_hex(const char *v){unsigned r=18,g=22,b=30;if(v&&v[0]=='#')sscanf_s(v+1,"%02x%02x%02x",&r,&g,&b);return(Color){(unsigned char)r,(unsigned char)g,(unsigned char)b,255};}
 static int find_entity(Scene *s, const char *name) {
     for (int i=0;i<s->entityCount;i++) if (!strcmp(s->entities[i].name,name)) return i;
     return -1;
@@ -61,13 +71,19 @@ static int load_scene(const char *path,Scene *s) {
     if(!f)return 0;
     memset(s,0,sizeof(*s)); s->width=1280;s->height=720;
     strcpy_s(s->title,sizeof(s->title),"E#+ Game");
-    strcpy_s(s->shader,sizeof(s->shader),"none");
+    strcpy_s(s->shader,sizeof(s->shader),"none"); s->background=(Color){18,22,30,255};
     while(fgets(line,sizeof(line),f)) {
         char a[256]={0},b[256]={0},c[256]={0}; float x,y,z;
         if(sscanf_s(line,"WINDOW_WIDTH %d",&s->width)==1) continue;
         if(sscanf_s(line,"WINDOW_HEIGHT %d",&s->height)==1) continue;
         if(sscanf_s(line,"TITLE %255[^\r\n]",s->title,(unsigned)_countof(s->title))==1) continue;
         if(sscanf_s(line,"SHADER %63s",s->shader,(unsigned)_countof(s->shader))==1) continue;
+        if(!strncmp(line,"CANVAS ",7)){s->canvas=1;continue;}
+        if(!strncmp(line,"BACKGROUND ",11)){char v[32]={0};if(sscanf_s(line+11,"%31s",v,(unsigned)_countof(v))==1)s->background=parse_hex(v);continue;}
+        if(!strncmp(line,"TEXT ",5)){char n[128]={0},t[256]={0};if(sscanf_s(line,"TEXT %127s %255[^\\r\\n]",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2){UIElement*u=add_ui(s,n,"text");if(u)strncpy_s(u->text,sizeof(u->text),t,_TRUNCATE);}continue;}
+        if(!strncmp(line,"BUTTON ",7)){char n[128]={0},t[256]={0};if(sscanf_s(line,"BUTTON %127s %255[^\\r\\n]",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2){UIElement*u=add_ui(s,n,"button");if(u)strncpy_s(u->text,sizeof(u->text),t,_TRUNCATE);}continue;}
+        if(!strncmp(line,"UI_POS ",7)){char n[128]={0};if(sscanf_s(line,"UI_POS %127s %f %f",n,(unsigned)_countof(n),&x,&y)==3){int i=find_ui(s,n);if(i>=0){s->ui[i].x=x;s->ui[i].y=y;}}continue;}
+        if(!strncmp(line,"UI_SIZE ",8)){char n[128]={0};if(sscanf_s(line,"UI_SIZE %127s %f %f",n,(unsigned)_countof(n),&x,&y)==3){int i=find_ui(s,n);if(i>=0){s->ui[i].w=x;s->ui[i].h=y;}}continue;}
         if(sscanf_s(line,"ENTITY %127s",a,(unsigned)_countof(a))==1) {
             Entity *e=add_entity(s,a); if(!e)continue;
             if(sscanf_s(line,"ENTITY %127s MODEL %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2)strncpy_s(e->model,sizeof(e->model),b,_TRUNCATE);
@@ -134,7 +150,7 @@ int main(int argc,char **argv) {
     SetWindowPosition(wx,wy);
     SetWindowFocused();
     RestoreWindow();
-    SetTargetFPS(120);DisableCursor();
+    SetTargetFPS(120);if(!s.canvas)DisableCursor();
     /* Resolve bundled shaders relative to the runtime executable without
        depending on windows.h (which conflicts with raylib's Win32 names). */
     char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
@@ -217,12 +233,13 @@ int main(int argc,char **argv) {
             if(locCamera>=0)SetShaderValue(realistic,locCamera,camPos,SHADER_UNIFORM_VEC3);
             if(locSunDir>=0)SetShaderValue(realistic,locSunDir,sunDir,SHADER_UNIFORM_VEC3);
         }
-        BeginDrawing();ClearBackground((Color){18,22,30,255});
+        BeginDrawing();ClearBackground(s.background);
         BeginMode3D(cam);
         if(realistic.id>0)BeginShaderMode(realistic);
         for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i]);
         if(realistic.id>0)EndShaderMode();
         EndMode3D();
+        if(s.canvas){Vector2 mp=GetMousePosition();for(int i=0;i<s.uiCount;i++){UIElement*u=&s.ui[i];if(!strcmp(u->type,"text"))DrawText(u->text,(int)u->x,(int)u->y,24,RAYWHITE);else if(!strcmp(u->type,"button")){Rectangle r={(float)u->x,(float)u->y,u->w,u->h};int h=CheckCollisionPointRec(mp,r);DrawRectangleRec(r,h?(Color){70,110,190,255}:(Color){50,65,90,255});DrawRectangleLinesEx(r,1,RAYWHITE);DrawText(u->text,(int)u->x+10,(int)u->y+10,20,RAYWHITE);}}}
         EndDrawing();
     }
     if(realistic.id>0)UnloadShader(realistic); EnableCursor();CloseWindow();return 0;
