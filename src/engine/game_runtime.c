@@ -139,12 +139,15 @@ int main(int argc,char **argv) {
        depending on windows.h (which conflicts with raylib's Win32 names). */
     char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
     strncpy_s(exeDir,sizeof(exeDir),argv[0],_TRUNCATE);
-    char *slash=strrchr(exeDir,'\\\\'); if(!slash) slash=strrchr(exeDir,'/');
+    char *slash=strrchr(exeDir,'\\'); if(!slash) slash=strrchr(exeDir,'/');
     if(slash) slash[1]=0; else exeDir[0]=0;
     snprintf(shaderVs,sizeof(shaderVs),"%seplus_realistic.vs",exeDir);
     snprintf(shaderFs,sizeof(shaderFs),"%seplus_realistic.fs",exeDir);
     Shader realistic={0};
-    if(!strcmp(s.shader,"realistic")) realistic=LoadShader(FileExists(shaderVs)?shaderVs:NULL,FileExists(shaderFs)?shaderFs:NULL);
+    if(!strcmp(s.shader,"realistic")){
+        realistic=LoadShader(FileExists(shaderVs)?shaderVs:NULL,FileExists(shaderFs)?shaderFs:NULL);
+        if(realistic.id<=0) fprintf(stderr,"E#+ Game Runtime: realistic shader could not be loaded.\n");
+    }
     int locTime=-1,locCamera=-1,locSunDir=-1;
     if(realistic.id>0){
         locTime=GetShaderLocation(realistic,"uTime");
