@@ -15,97 +15,101 @@ static char *dupstr(const char*s){size_t n=strlen(s)+1;char*p=(char*)malloc(n);i
 static char *trim(char*s){char*e;while(*s&&isspace((unsigned char)*s))s++;e=s+strlen(s);while(e>s&&isspace((unsigned char)e[-1]))--e;*e=0;return s;}
 static struct V*findv(const char*n){for(int i=0;i<vc;i++)if(!strcmp(vars[i].n,n))return &vars[i];return NULL;}
 static void setv(const char*n,const char*v){struct V*x=findv(n);if(!x&&vc<MAXV){x=&vars[vc++];strncpy_s(x->n,sizeof(x->n),n,_TRUNCATE);}if(x)strncpy_s(x->v,sizeof(x->v),v,_TRUNCATE);}
-static int ask_input(const char *prompt,char *out,size_t cap){
-    if(!out || cap<2)return 0;
-    out[0]=0;
+static HWND ask_window=NULL, ask_edit=NULL;
+static int ask_done=0, ask_cancelled=0;
 
-    /*
-       EPlus Studio starts the engine with stdin redirected and CREATE_NO_WINDOW.
-       Therefore this function is the non-console fallback. Keep the whole UI
-       operation inside SEH so a Windows GUI failure cannot terminate EPlus.
-    */
-    __try {
-        static const char cls[]="EPlusAskInput";
-        static ATOM atom=0;
-        HINSTANCE inst=GetModuleHandleA(NULL);
-
-        if(!atom){
-            WNDCLASSA wc;
-            ZeroMemory(&wc,sizeof(wc));
-            wc.lpfnWndProc=DefWindowProcA;
-            wc.hInstance=inst;
-            wc.lpszClassName=cls;
-            wc.hCursor=LoadCursorA(NULL,IDC_ARROW);
-            atom=RegisterClassA(&wc);
-            if(!atom && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return 0;
-        }
-
-        HWND w=CreateWindowExA(
-            WS_EX_DLGMODALFRAME|WS_EX_TOPMOST,cls,"E#+ Input",
-            WS_CAPTION|WS_SYSMENU|WS_VISIBLE,
-            CW_USEDEFAULT,CW_USEDEFAULT,520,180,
-            NULL,NULL,inst,NULL
-        );
-        if(!w)return 0;
-
-        HWND edit=CreateWindowExA(
-            WS_EX_CLIENTEDGE,"EDIT","",
-            WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
-            20,55,460,28,w,(HMENU)(INT_PTR)1001,inst,NULL
-        );
-        HWND ok=CreateWindowExA(
-            0,"BUTTON","OK",
-            WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
-            350,100,130,30,w,(HMENU)(INT_PTR)1002,inst,NULL
-        );
-        HWND label=CreateWindowExA(
-            0,"STATIC",prompt ? prompt : "",
-            WS_CHILD|WS_VISIBLE,
-            20,20,460,25,w,NULL,inst,NULL
-        );
-
-        if(!edit || !ok || !label){
-            if(edit)DestroyWindow(edit);
-            if(ok)DestroyWindow(ok);
-            if(label)DestroyWindow(label);
-            if(IsWindow(w))DestroyWindow(w);
+static LRESULT CALLBACK ask_wndproc(HWND h,UINT m,WPARAM w,LPARAM l){
+    switch(m){
+    case WM_COMMAND:
+        if(LOWORD(w)==1002 && HIWORD(w)==BN_CLICKED){
+            if(ask_edit)GetWindowTextA(ask_edit,(char*)GetPropA(h,"EPlusAskBuffer"),1024);
+            ask_done=1;
+            DestroyWindow(h);
             return 0;
         }
-
-        ShowWindow(w,SW_SHOW);
-        UpdateWindow(w);
-        SetFocus(edit);
-
-        int done=0,cancelled=0;
-        MSG msg;
-        while(!done){
-            int gm=GetMessageA(&msg,NULL,0,0);
-            if(gm<=0)break;
-
-            if(msg.message==WM_KEYDOWN && msg.wParam==VK_RETURN){
-                if(IsWindow(edit))GetWindowTextA(edit,out,(int)cap);
-                done=1;
-            }else if(msg.message==WM_KEYDOWN && msg.wParam==VK_ESCAPE){
-                cancelled=1;done=1;
-            }else if(msg.message==WM_COMMAND && LOWORD(msg.wParam)==1002){
-                if(IsWindow(edit))GetWindowTextA(edit,out,(int)cap);
-                done=1;
-            }else if(msg.message==WM_CLOSE){
-                cancelled=1;done=1;
-            }else{
-                TranslateMessage(&msg);
-                DispatchMessageA(&msg);
-            }
-        }
-
-        if(IsWindow(w))DestroyWindow(w);
-        return (!cancelled && done) ? 1 : 0;
-    }
-    __except(EXCEPTION_EXECUTE_HANDLER) {
-        out[0]=0;
-        fprintf(stderr,"E#+ error: ask user input window failed (Windows exception 0x%08lX).\n",(unsigned long)GetExceptionCode());
+        break;
+    case WM_CLOSE:
+        ask_cancelled=1;
+        ask_done=1;
+        DestroyWindow(h);
+        return 0;
+    case WM_DESTROY:
+        if(ask_window==h)ask_window=NULL;
         return 0;
     }
+    return DefWindowProcA(h,m,w,l);
+}
+
+static int ask_input(const char *prompt,char *out,size_t cap){
+    if(!out||cap<2)return 0;
+    out[0]=0;
+
+    static const char cls[]="EPlusAskInput";
+    static ATOM atom=0;
+    HINSTANCE inst=GetModuleHandleA(NULL);
+
+    if(!atom){
+        WNDCLASSA wc;
+        ZeroMemory(&wc,sizeof(wc));
+        wc.lpfnWndProc=ask_wndproc;
+        wc.hInstance=inst;
+        wc.lpszClassName=cls;
+        wc.hCursor=LoadCursorA(NULL,IDC_ARROW);
+        atom=RegisterClassA(&wc);
+        if(!atom && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return 0;
+    }
+
+    char buffer[1024]={0};
+    HWND w=CreateWindowExA(
+        WS_EX_DLGMODALFRAME|WS_EX_TOPMOST,cls,"E#+ Input",
+        WS_CAPTION|WS_SYSMENU|WS_VISIBLE,
+        CW_USEDEFAULT,CW_USEDEFAULT,520,180,
+        NULL,NULL,inst,NULL);
+    if(!w)return 0;
+
+    HWND label=CreateWindowExA(0,"STATIC",prompt?prompt:"",
+        WS_CHILD|WS_VISIBLE,20,20,460,25,w,NULL,inst,NULL);
+    ask_edit=CreateWindowExA(WS_EX_CLIENTEDGE,"EDIT","",
+        WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
+        20,55,460,28,w,(HMENU)(INT_PTR)1001,inst,NULL);
+    HWND ok=CreateWindowExA(0,"BUTTON","OK",
+        WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
+        350,100,130,30,w,(HMENU)(INT_PTR)1002,inst,NULL);
+
+    if(!label||!ask_edit||!ok){
+        if(ask_edit)DestroyWindow(ask_edit);
+        if(ok)DestroyWindow(ok);
+        if(label)DestroyWindow(label);
+        if(IsWindow(w))DestroyWindow(w);
+        ask_edit=NULL;
+        return 0;
+    }
+
+    SetPropA(w,"EPlusAskBuffer",(HANDLE)buffer);
+    SendMessageA(ask_edit,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
+    SendMessageA(ok,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
+    SendMessageA(label,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
+    SetFocus(ask_edit);
+
+    ask_window=w;
+    ask_done=0;
+    ask_cancelled=0;
+
+    MSG msg;
+    while(!ask_done && GetMessageA(&msg,NULL,0,0)>0){
+        TranslateMessage(&msg);
+        DispatchMessageA(&msg);
+    }
+
+    if(!ask_cancelled && ask_done){
+        strncpy_s(out,cap,buffer,_TRUNCATE);
+    }
+
+    RemovePropA(w,"EPlusAskBuffer");
+    if(IsWindow(w))DestroyWindow(w);
+    ask_edit=NULL;
+    ask_window=NULL;
+    return (!ask_cancelled && ask_done)?1:0;
 }
 
 static int is_number(const char*s){if(!*s)return 0;char*e;strtod(s,&e);return *e==0;}
