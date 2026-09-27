@@ -1,7 +1,7 @@
 [Setup]
 AppId={{F5D36D18-7B9E-4E76-9F35-EPLUSSTUDIO01}}
 AppName=E#+ Studio
-AppVersion=0.2.0
+AppVersion=0.3.0
 AppPublisher=E#+ Project
 DefaultDirName={autopf}\EPlus Studio
 DefaultGroupName=E#+ Studio
@@ -15,6 +15,7 @@ UninstallDisplayIcon={app}\EPlusStudio.exe
 [Files]
 Source: "..\build\EPlusStudio.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\eplus-engine.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\build\EPlusGameRuntime.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\examples\*.eplus"; DestDir: "{app}\examples"; Flags: ignoreversion
 [Icons]
 Name: "{group}\E#+ Studio"; Filename: "{app}\EPlusStudio.exe"
