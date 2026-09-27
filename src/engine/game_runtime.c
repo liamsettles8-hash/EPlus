@@ -177,6 +177,8 @@ int main(int argc,char **argv) {
     if(player>=0)cam.position=s.entities[player].pos;
     cam.up=(Vector3){0,1,0};cam.fovy=70;cam.projection=CAMERA_PERSPECTIVE;
     float yaw=-90,pitch=0,elapsed=0;
+    float verticalVelocity=0.0f;
+    int grounded=0;
     while(!WindowShouldClose()){
         float dt=GetFrameTime();elapsed+=dt;shaderTime+=dt;
         if(player>=0 && s.entities[player].alive){
@@ -184,8 +186,33 @@ int main(int argc,char **argv) {
             Vector2 md=GetMouseDelta();yaw+=md.x*.10f;pitch-=md.y*.10f;
             if(pitch>89)pitch=89;if(pitch<-89)pitch=-89;
             Vector3 fwd=forward_from(yaw,pitch);
-            Vector3 flat=Vector3Normalize((Vector3){fwd.x,0,fwd.z});
+            Vector3 horizontalForward=Vector3Normalize((Vector3){fwd.x,0,fwd.z});
+            Vector3 flat=horizontalForward;
             Vector3 right=Vector3Normalize(Vector3CrossProduct(flat,(Vector3){0,1,0}));
+            /* Built-in generic first-person controls for any E#+ controllable entity.
+               These are runtime mechanics, not game-specific behavior. */
+            if(IsKeyDown(KEY_W)) p->pos=Vector3Add(p->pos,Vector3Scale(flat,p->speed*dt));
+            if(IsKeyDown(KEY_S)) p->pos=Vector3Add(p->pos,Vector3Scale(Vector3Negate(flat),p->speed*dt));
+            if(IsKeyDown(KEY_A)) p->pos=Vector3Add(p->pos,Vector3Scale(Vector3Negate(right),p->speed*dt));
+            if(IsKeyDown(KEY_D)) p->pos=Vector3Add(p->pos,Vector3Scale(right,p->speed*dt));
+
+            grounded = (p->pos.y <= 0.001f);
+            if(grounded) {
+                p->pos.y = 0.0f;
+                verticalVelocity = 0.0f;
+            }
+            if(IsKeyPressed(KEY_SPACE) && grounded) {
+                verticalVelocity = 5.5f;
+                grounded = 0;
+            }
+            verticalVelocity -= 18.0f * dt;
+            p->pos.y += verticalVelocity * dt;
+            if(p->pos.y < 0.0f) {
+                p->pos.y = 0.0f;
+                verticalVelocity = 0.0f;
+                grounded = 1;
+            }
+
             for(int r=0;r<s.ruleCount;r++){
                 Rule *rule=&s.rules[r];
                 if(strcmp(rule->event,"KEY"))continue;
@@ -237,6 +264,7 @@ int main(int argc,char **argv) {
         ClearBackground(s.background);
         if(!s.canvas){
             BeginMode3D(cam);
+            DrawPlane((Vector3){0,-0.51f,0},(Vector2){100,100},(Color){135,135,135,255});
             if(realistic.id>0)BeginShaderMode(realistic);
             for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i]);
             if(realistic.id>0)EndShaderMode();
