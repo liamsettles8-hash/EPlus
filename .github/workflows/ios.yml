@@ -1,0 +1,36 @@
+name: Build E#+ iOS
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build unsigned iOS app
+        run: |
+          xcodebuild             -project ios/EPlusIOS.xcodeproj             -scheme EPlusIOS             -sdk iphoneos             -configuration Release             -derivedDataPath build-ios             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             build
+
+      - name: Package IPA
+        run: |
+          rm -rf Payload EPlusIOS-unsigned.ipa
+          mkdir Payload
+          cp -R build-ios/Build/Products/Release-iphoneos/EPlusIOS.app Payload/
+          /usr/bin/zip -qry EPlusIOS-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: EPlusIOS-unsigned-ipa
+          path: EPlusIOS-unsigned.ipa
+          if-no-files-found: error
