@@ -1,0 +1,109 @@
+name: Build and Release E#+ Studio
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 1.5.1"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Get release version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
+            $tag = "v$version"
+          } else {
+            $tag = "${{ github.ref_name }}"
+            $version = $tag -replace '^v', ''
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Version must use MAJOR.MINOR.PATCH format. Got: $version"
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Set E#+ version
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+
+          $studio = Get-Content "src/studio/studio.c" -Raw
+          $studio = [regex]::Replace(
+            $studio,
+            '#define EPLUS_VERSION L"[^"]+"',
+            '#define EPLUS_VERSION L"' + $version + '"'
+          )
+          Set-Content "src/studio/studio.c" $studio -NoNewline
+
+          $iss = Get-Content "installer/EPlusStudio.iss" -Raw
+          $iss = [regex]::Replace(
+            $iss,
+            'AppVersion=[^\r\n]+',
+            'AppVersion=' + $version
+          )
+          Set-Content "installer/EPlusStudio.iss" $iss -NoNewline
+
+      - name: Get raylib
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch 6.0 https://github.com/raysan5/raylib.git third_party/raylib
+
+      - name: Build E#+
+        shell: cmd
+        run: build-studio.bat
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: cmd
+        run: build-installer.bat
+
+      - name: Verify release files
+        shell: pwsh
+        run: |
+          $installer = "installer-output/EPlusStudio-Setup.exe"
+          if (!(Test-Path $installer)) {
+            throw "Installer was not created: $installer"
+          }
+
+          $version = "${{ steps.version.outputs.version }}"
+          $studio = Get-Content "src/studio/studio.c" -Raw
+          if ($studio -notmatch [regex]::Escape('#define EPLUS_VERSION L"' + $version + '"')) {
+            throw "Studio version was not synchronized."
+          }
+
+          $iss = Get-Content "installer/EPlusStudio.iss" -Raw
+          if ($iss -notmatch [regex]::Escape("AppVersion=$version")) {
+            throw "Installer version was not synchronized."
+          }
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: E#+ Studio ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: installer-output/EPlusStudio-Setup.exe
