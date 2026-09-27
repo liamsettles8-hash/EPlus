@@ -23,8 +23,7 @@ typedef struct {
 
 typedef struct {
     int width, height;
-    float arena;
-    float spawnRate, winTime;
+    float winTime;
     char title[256];
     Entity entities[MAX_ENTITIES];
     int entityCount;
@@ -58,15 +57,13 @@ static void add_rule(Scene *s,const char *event,const char *a,const char *action
 static int load_scene(const char *path,Scene *s) {
     FILE *f=fopen(path,"r"); char line[2048];
     if(!f)return 0;
-    memset(s,0,sizeof(*s)); s->width=1280;s->height=720;s->arena=40;s->spawnRate=2;
+    memset(s,0,sizeof(*s)); s->width=1280;s->height=720;
     strcpy_s(s->title,sizeof(s->title),"E#+ Game");
     while(fgets(line,sizeof(line),f)) {
         char a[256]={0},b[256]={0},c[256]={0}; float x,y,z;
         if(sscanf_s(line,"WINDOW_WIDTH %d",&s->width)==1) continue;
         if(sscanf_s(line,"WINDOW_HEIGHT %d",&s->height)==1) continue;
         if(sscanf_s(line,"TITLE %255[^\r\n]",s->title,(unsigned)_countof(s->title))==1) continue;
-        if(sscanf_s(line,"ARENA %f",&s->arena)==1) continue;
-        if(sscanf_s(line,"SPAWN_RATE %f",&s->spawnRate)==1) continue;
         if(sscanf_s(line,"ENTITY %127s",a,(unsigned)_countof(a))==1) {
             Entity *e=add_entity(s,a); if(!e)continue;
             if(sscanf_s(line,"ENTITY %127s MODEL %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2)strncpy_s(e->model,sizeof(e->model),b,_TRUNCATE);
@@ -90,13 +87,23 @@ static int load_scene(const char *path,Scene *s) {
 static Vector3 forward_from(float yaw,float pitch){
     return (Vector3){cosf(yaw*DEG2RAD)*cosf(pitch*DEG2RAD),sinf(pitch*DEG2RAD),sinf(yaw*DEG2RAD)*cosf(pitch*DEG2RAD)};
 }
+static int key_code(const char *key) {
+    if(strlen(key)==1) {
+        char c=(char)toupper((unsigned char)key[0]);
+        if(c>='A'&&c<='Z') return KEY_A+(c-'A');
+    }
+    if(!strcmp(key,"SPACE"))return KEY_SPACE;
+    if(!strcmp(key,"ENTER"))return KEY_ENTER;
+    if(!strcmp(key,"ESC"))return KEY_ESCAPE;
+    if(!strcmp(key,"UP"))return KEY_UP;
+    if(!strcmp(key,"DOWN"))return KEY_DOWN;
+    if(!strcmp(key,"LEFT"))return KEY_LEFT;
+    if(!strcmp(key,"RIGHT"))return KEY_RIGHT;
+    return KEY_NULL;
+}
 static int is_pressed(const char *key) {
-    if(!strcmp(key,"W"))return IsKeyDown(KEY_W);
-    if(!strcmp(key,"S"))return IsKeyDown(KEY_S);
-    if(!strcmp(key,"A"))return IsKeyDown(KEY_A);
-    if(!strcmp(key,"D"))return IsKeyDown(KEY_D);
-    if(!strcmp(key,"SPACE"))return IsKeyDown(KEY_SPACE);
-    return 0;
+    int k=key_code(key);
+    return k!=KEY_NULL && IsKeyDown(k);
 }
 static void render_entity(const Entity *e) {
     if(!e->alive)return;
@@ -116,7 +123,6 @@ int main(int argc,char **argv) {
     InitWindow(s.width,s.height,s.title);SetTargetFPS(120);DisableCursor();
     int player=-1;
     for(int i=0;i<s.entityCount;i++)if(s.entities[i].controllable){player=i;break;}
-    if(player<0 && s.entityCount>0)player=0;
     Camera3D cam={0};
     if(player>=0)cam.position=s.entities[player].pos;
     cam.up=(Vector3){0,1,0};cam.fovy=70;cam.projection=CAMERA_PERSPECTIVE;
@@ -143,10 +149,6 @@ int main(int argc,char **argv) {
                     p->pos=Vector3Add(p->pos,Vector3Scale(dir,p->speed*dt));
                 }
             }
-            if(p->pos.x<-s.arena/2+1)p->pos.x=-s.arena/2+1;
-            if(p->pos.x>s.arena/2-1)p->pos.x=s.arena/2-1;
-            if(p->pos.z<-s.arena/2+1)p->pos.z=-s.arena/2+1;
-            if(p->pos.z>s.arena/2-1)p->pos.z=s.arena/2-1;
             cam.position=p->pos;cam.target=Vector3Add(cam.position,fwd);
             for(int r=0;r<s.ruleCount;r++){
                 Rule *rule=&s.rules[r];
@@ -175,12 +177,8 @@ int main(int argc,char **argv) {
         }
         BeginDrawing();ClearBackground((Color){18,22,30,255});
         BeginMode3D(cam);
-        DrawPlane((Vector3){0,0,0},(Vector2){s.arena,s.arena},(Color){62,68,76,255});
         for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i]);
         EndMode3D();
-        if(player>=0)DrawText(TextFormat("HEALTH %.0f",s.entities[player].health),20,20,22,RAYWHITE);
-        DrawText(TextFormat("TIME %.1f",elapsed),20,48,22,RAYWHITE);
-        DrawText("E#+ generic runtime",20,s.height-35,18,RAYWHITE);
         EndDrawing();
     }
     EnableCursor();CloseWindow();return 0;
