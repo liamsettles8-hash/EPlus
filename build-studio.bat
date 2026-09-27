@@ -1,6 +1,22 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+
+rem Force MSVC to target x64 even when launched from a normal Command Prompt.
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE%" (
+  echo Could not find Visual Studio vswhere.exe.
+  echo Install Visual Studio 2026 Build Tools with the C++ workload.
+  goto :error
+)
+for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSROOT=%%I"
+if not defined VSROOT (
+  echo Could not find a Visual Studio C++ installation.
+  goto :error
+)
+call "%VSROOT%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+if errorlevel 1 goto :error
+
 if not exist build mkdir build
 
 echo [1/3] Building E#+ engine (x64)...
