@@ -185,7 +185,8 @@ static void file_dialog(int save){
     o.Flags=save?OFN_OVERWRITEPROMPT:OFN_FILEMUSTEXIST;if((save?GetSaveFileNameW(&o):GetOpenFileNameW(&o))){if(save)savefile(p);else openfile(p);}
 }
 
-static void run_program(void){
+static DWORD WINAPI run_worker(LPVOID param){
+    (void)param;
     wchar_t tmp[MAX_PATH],dir[MAX_PATH],eng[MAX_PATH],cmd[2*MAX_PATH];
     GetTempPathW(MAX_PATH,tmp);wcscat_s(tmp,MAX_PATH,L"EPlusStudio_Run.eplus");
     if(!savefile(tmp)){append_console(L"Could not create temporary file.\r\n");return;}
@@ -229,6 +230,11 @@ static void run_program(void){
     wchar_t st[100];swprintf_s(st,100,L"\r\n> Process exited with code %lu\r\n",code);
     append_console(st);
     CloseHandle(r);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);
+    return 0;
+}
+
+static void run_program(void){
+    CreateThread(NULL,0,run_worker,NULL,0,NULL);
 }
 
 static void guide(HWND h){
