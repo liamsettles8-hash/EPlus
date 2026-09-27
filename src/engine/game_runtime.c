@@ -180,7 +180,8 @@ int main(int argc,char **argv) {
                     p->pos=Vector3Add(p->pos,Vector3Scale(dir,p->speed*dt));
                 }
             }
-            cam.position=p->pos;cam.target=Vector3Add(cam.position,fwd);
+            cam.position=Vector3Add(p->pos,(Vector3){0,1.6f,0});
+            cam.target=Vector3Add(cam.position,Vector3Scale(fwd,10.0f));
             for(int r=0;r<s.ruleCount;r++){
                 Rule *rule=&s.rules[r];
                 if(strcmp(rule->event,"MOUSE"))continue;
