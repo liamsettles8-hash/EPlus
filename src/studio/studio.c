@@ -27,7 +27,7 @@
 #define CHECK_UPDATES 110
 #define WM_APP_UPDATE_RESULT (WM_APP + 20)
 
-#define EPLUS_VERSION L"0.2.0"
+#define EPLUS_VERSION L"1.3.0"
 #define EPLUS_REPO_OWNER L"liamsettles8-hash"
 #define EPLUS_REPO_NAME L"EPlus"
 #define EPLUS_RELEASE_ASSET L"EPlusStudio-Setup.exe"
