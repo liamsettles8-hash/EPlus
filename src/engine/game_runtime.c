@@ -6,7 +6,6 @@
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
-#include <windows.h>
 
 #define MAX_ENTITIES 256
 #define MAX_RULES 256
