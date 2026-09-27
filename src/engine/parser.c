@@ -1,0 +1,13 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#define MAXV 256
+struct V{char n[64];char v[1024];}; static struct V vars[MAXV]; static int vc;
+static char *dupstr(const char*s){size_t n=strlen(s)+1;char*p=(char*)malloc(n);if(p)memcpy(p,s,n);return p;}
+static char *trim(char*s){char*e;while(*s&&isspace((unsigned char)*s))s++;e=s+strlen(s);while(e>s&&isspace((unsigned char)e[-1]))--e;*e=0;return s;}
+static struct V*findv(const char*n){int i;for(i=0;i<vc;i++)if(!strcmp(vars[i].n,n))return &vars[i];return NULL;}
+static void setv(const char*n,const char*v){struct V*x=findv(n);if(!x&&vc<MAXV){x=&vars[vc++];strncpy_s(x->n,sizeof(x->n),n,_TRUNCATE);}if(x)strncpy_s(x->v,sizeof(x->v),v,_TRUNCATE);}
+static void eval(const char*e,char*out,size_t cap){char b[2048];char*p,*q;out[0]=0;strncpy_s(b,sizeof(b),e,_TRUNCATE);p=b;for(;;){q=strchr(p,'+');if(q)*q=0;p=trim(p);if(*p=='"'&&strlen(p)>=2&&p[strlen(p)-1]=='"'){p[strlen(p)-1]=0;p++;strcat_s(out,cap,p);}else{struct V*v=findv(p);strcat_s(out,cap,v?v->v:p);}if(!q)break;p=q+1;}}
+static void printline(char*s){char o[4096];eval(trim(s+12),o,sizeof(o));printf("%s\n",o);}
+int run_eplus(const char*src){char*c=dupstr(src),*ctx=NULL,*line;char*ls[4096];int n=0,i;if(!c)return 1;vc=0;line=strtok_s(c,"\r\n",&ctx);while(line&&n<4096){ls[n++]=line;line=strtok_s(NULL,"\r\n",&ctx);}for(i=0;i<n;i++){char*s=trim(ls[i]);if(!*s||*s=='#')continue;if(!strncmp(s,"print words ",12)){printline(s);continue;}if(!strncmp(s,"set ",4)){char*p=strstr(s+4," to ");if(p){char name[64],val[1024];*p=0;strncpy_s(name,sizeof(name),trim(s+4),_TRUNCATE);strncpy_s(val,sizeof(val),trim(p+4),_TRUNCATE);if(val[0]=='"'&&val[strlen(val)-1]=='"'){size_t z=strlen(val)-2;memmove(val,val+1,z);val[z]=0;}setv(name,val);}continue;}if(!strncmp(s,"repeat ",7)){int times=0,end=i+1,r,j;sscanf_s(s,"repeat %d times",&times);while(end<n&&strcmp(trim(ls[end]),"end"))end++;for(r=0;r<times;r++)for(j=i+1;j<end;j++){char*t=trim(ls[j]);if(!strncmp(t,"print words ",12))printline(t);}i=end;continue;}if(!strncmp(s,"if ",3)){char left[64],right[64];int yes=0,end=i+1,el=-1,j;if(sscanf_s(s,"if %63s is greater than %63s then",left,(unsigned)_countof(left),right,(unsigned)_countof(right))==2){struct V*v=findv(left);yes=atoi(v?v->v:left)>atoi(right);}while(end<n&&strcmp(trim(ls[end]),"end")){if(!strcmp(trim(ls[end]),"else"))el=end;end++;}if(yes){for(j=i+1;j<(el>=0?el:end);j++)if(!strncmp(trim(ls[j]),"print words ",12))printline(trim(ls[j]));}else if(el>=0){for(j=el+1;j<end;j++)if(!strncmp(trim(ls[j]),"print words ",12))printline(trim(ls[j]));}i=end;continue;}fprintf(stderr,"E#+ error: unknown statement: %s\n",s);free(c);return 1;}free(c);return 0;}
