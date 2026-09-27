@@ -137,6 +137,22 @@ static void render_entity(const Entity *e) {
         DrawCube(e->pos,q,q,q,(Color){150,150,160,255});
     }
 }
+
+static void render_2d(Scene *s) {
+    Vector2 mp=GetMousePosition();
+    for(int i=0;i<s->uiCount;i++) {
+        UIElement *u=&s->ui[i];
+        if(!strcmp(u->type,"text")) {
+            DrawText(u->text,(int)u->x,(int)u->y,24,RAYWHITE);
+        } else if(!strcmp(u->type,"button")) {
+            Rectangle r={(float)u->x,(float)u->y,u->w,u->h};
+            int hovered=CheckCollisionPointRec(mp,r);
+            DrawRectangleRec(r,hovered?(Color){70,110,190,255}:(Color){50,65,90,255});
+            DrawRectangleLinesEx(r,1,RAYWHITE);
+            DrawText(u->text,(int)u->x+10,(int)u->y+10,20,RAYWHITE);
+        }
+    }
+}
 int main(int argc,char **argv) {
     Scene s;
     if(argc<2 || !load_scene(argv[1],&s)){fprintf(stderr,"E#+ Game Runtime: invalid scene.\n");return 1;}
@@ -150,7 +166,7 @@ int main(int argc,char **argv) {
     SetWindowPosition(wx,wy);
     SetWindowFocused();
     RestoreWindow();
-    SetTargetFPS(120);if(!s.canvas)DisableCursor();
+    SetTargetFPS(120);\n    /* 2D elements are an overlay in every scene. A canvas scene is still 2D-only. */\n    if(s.canvas) EnableCursor(); else DisableCursor();
     /* Resolve bundled shaders relative to the runtime executable without
        depending on windows.h (which conflicts with raylib's Win32 names). */
     char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
@@ -269,22 +285,10 @@ int main(int argc,char **argv) {
             for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i]);
             if(realistic.id>0)EndShaderMode();
             EndMode3D();
-        }else{
-            Vector2 mp=GetMousePosition();
-            for(int i=0;i<s.uiCount;i++){
-                UIElement*u=&s.ui[i];
-                if(!strcmp(u->type,"text")){
-                    DrawText(u->text,(int)u->x,(int)u->y,24,RAYWHITE);
-                }else if(!strcmp(u->type,"button")){
-                    Rectangle r={(float)u->x,(float)u->y,u->w,u->h};
-                    int h=CheckCollisionPointRec(mp,r);
-                    DrawRectangleRec(r,h?(Color){70,110,190,255}:(Color){50,65,90,255});
-                    DrawRectangleLinesEx(r,1,RAYWHITE);
-                    DrawText(u->text,(int)u->x+10,(int)u->y+10,20,RAYWHITE);
-                }
-            }
         }
+        /* Always draw the 2D layer last so HUD/UI stays above the 3D world. */
+        if(s.uiCount>0) render_2d(&s);
         EndDrawing();
     }
-    if(realistic.id>0)UnloadShader(realistic); EnableCursor();CloseWindow();return 0;
+    if(realistic.id>0)UnloadShader(realistic);\n    EnableCursor();\n    CloseWindow();\n    return 0;
 }
