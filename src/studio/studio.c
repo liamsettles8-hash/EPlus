@@ -28,7 +28,7 @@
 #define WM_APP_UPDATE_RESULT (WM_APP + 20)
 
 #define EPLUS_VERSION L"0.2.0"
-#define EPLUS_REPO_OWNER L"YOUR_GITHUB_USERNAME"
+#define EPLUS_REPO_OWNER L"liamsettles8-hash"
 #define EPLUS_REPO_NAME L"EPlus"
 #define EPLUS_RELEASE_ASSET L"EPlusStudio-Setup.exe"
 #define EPLUS_RELEASE_ASSET_A "EPlusStudio-Setup.exe"
