@@ -1,5 +1,3 @@
-#define UNICODE
-#define _UNICODE
 #include <windows.h>
 #include <commdlg.h>
 #include <stdio.h>
@@ -10,7 +8,7 @@
 #include <shellapi.h>
 
 #define ED 101
-#define OUT 102
+#define CONSOLE_OUT 102
 #define RUN 103
 #define NEW 104
 #define OPEN 105
@@ -65,14 +63,14 @@ static void send_console_input(void){
     int n=GetWindowTextLengthW(console);if(n<=0)return;
     wchar_t *all=(wchar_t*)malloc(((size_t)n+1)*sizeof(wchar_t));if(!all)return;
     GetWindowTextW(console,all,n+1);
-    int start=n;while(start>0&&all[start-1]!=L'\\n')start--;
-    while(start<n&&(all[start]==L'\\r'||all[start]==L'\\n'))start++;
+    int start=n;while(start>0&&all[start-1]!=L'\n')start--;
+    while(start<n&&(all[start]==L'\r'||all[start]==L'\n'))start++;
     int len=n-start;if(len<0)len=0;
     wchar_t *line=(wchar_t*)malloc(((size_t)len+2)*sizeof(wchar_t));if(!line){free(all);return;}
-    memcpy(line,all+start,(size_t)len*sizeof(wchar_t));line[len]=L'\\n';line[len+1]=0;
+    memcpy(line,all+start,(size_t)len*sizeof(wchar_t));line[len]=L'\n';line[len+1]=0;
     int bytes=WideCharToMultiByte(CP_UTF8,0,line,len+1,NULL,0,NULL,NULL);
     if(bytes>0){char *b=(char*)malloc((size_t)bytes);if(b){WideCharToMultiByte(CP_UTF8,0,line,len+1,b,bytes,NULL,NULL);DWORD written=0;WriteFile(childStdinWrite,b,(DWORD)bytes,&written,NULL);free(b);}}
-    SendMessageW(console,EM_SETSEL,n,n);SendMessageW(console,EM_REPLACESEL,FALSE,(LPARAM)L"\\r\\n");
+    SendMessageW(console,EM_SETSEL,n,n);SendMessageW(console,EM_REPLACESEL,FALSE,(LPARAM)L"\r\n");
     free(line);free(all);
 }
 static LRESULT CALLBACK console_proc(HWND h,UINT m,WPARAM w,LPARAM l){
@@ -213,10 +211,10 @@ static DWORD WINAPI run_worker(LPVOID param){
     if(InterlockedCompareExchange(&runActive,1,0)!=0){append_console(L"E#+ is already running.\\r\\n");return 0;}
     wchar_t tmp[MAX_PATH],dir[MAX_PATH],eng[MAX_PATH],cmd[2*MAX_PATH];
     GetTempPathW(MAX_PATH,tmp);wcscat_s(tmp,MAX_PATH,L"EPlusStudio_Run.eplus");
-    if(!savefile(tmp)){append_console(L"Could not create temporary file.\r\n");return;}
+    if(!savefile(tmp)){append_console(L"Could not create temporary file.\r\n");InterlockedExchange(&runActive,0);return 0;}
     GetModuleFileNameW(NULL,dir,MAX_PATH);wchar_t*slash=wcsrchr(dir,L'\\');if(slash)*slash=0;
     swprintf_s(eng,MAX_PATH,L"%s\\eplus-engine.exe",dir);
-    if(GetFileAttributesW(eng)==INVALID_FILE_ATTRIBUTES){append_console(L"ERROR: eplus-engine.exe was not found next to EPlusStudio.exe.\r\n");return;}
+    if(GetFileAttributesW(eng)==INVALID_FILE_ATTRIBUTES){append_console(L"ERROR: eplus-engine.exe was not found next to EPlusStudio.exe.\r\n");InterlockedExchange(&runActive,0);return 0;}
     swprintf_s(cmd,2*MAX_PATH,L"\"%s\" \"%s\"",eng,tmp);
 
     SECURITY_ATTRIBUTES sa={sizeof(sa),NULL,TRUE};
@@ -301,7 +299,7 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
         colors();brushes();
         make_font();
         editor=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"# Welcome to E#+\r\nprint words \"Hello from E#+!\"\r\n\r\nset name to \"developer\"\r\nprint words \"Hello \" + name\r\n",WS_CHILD|WS_VISIBLE|WS_VSCROLL|WS_HSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,10,60,500,500,h,(HMENU)ED,0,0);
-        console=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"E#+ Console\r\n\r\n> Ready. Press Run to execute your E#+ program.\r\n",WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,520,60,500,500,h,(HMENU)OUT,0,0);\n        oldConsoleProc=(WNDPROC)SetWindowLongPtrW(console,GWLP_WNDPROC,(LONG_PTR)console_proc);
+        console=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"E#+ Console\r\n\r\n> Ready. Press Run to execute your E#+ program.\r\n",WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,520,60,500,500,h,(HMENU)CONSOLE_OUT,0,0);\n        oldConsoleProc=(WNDPROC)SetWindowLongPtrW(console,GWLP_WNDPROC,(LONG_PTR)console_proc);
         const wchar_t*names[]={L"Run",L"New",L"Open",L"Save",L"Guide",L"Settings",L"Updates",L"Clear"};int ids[]={RUN,NEW,OPEN,SAVE,GUIDE,SETTINGS,CHECK_UPDATES,CLEAR};
         for(int i=0;i<8;i++){HWND b=CreateWindowW(L"BUTTON",names[i],WS_CHILD|WS_VISIBLE,10+i*105,12,98,34,h,(HMENU)ids[i],0,0);SendMessageW(b,WM_SETFONT,(WPARAM)font,TRUE);}
         make_font();return 0;
