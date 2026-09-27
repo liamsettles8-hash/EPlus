@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E#+ Release Uploader</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#10131a;color:#eef1f7;max-width:760px;margin:50px auto;padding:20px}
+.card{background:#1c1f26;padding:28px;border-radius:14px}
+input,textarea,button{width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border-radius:8px;border:1px solid #3a404d;background:#15181f;color:#fff}
+button{cursor:pointer;background:#3b6eea;border:0;font-weight:700}
+small{color:#aeb5c2}.danger{color:#ff9b9b}#status{white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>E#+ Release Uploader</h1>
+<p>Upload a new <b>EPlusStudio-Setup.exe</b> to a GitHub Release.</p>
+<label>GitHub fine-grained token</label>
+<input id="token" type="password" autocomplete="off" placeholder="github_pat_...">
+<small>Use a token with <b>Contents: Read and write</b> for the EPlus repository. The page does not save the token.</small>
+<label>Version tag</label>
+<input id="tag" placeholder="v1.6.0">
+<label>Release name</label>
+<input id="name" placeholder="E#+ Studio 1.6.0">
+<label>Release notes</label>
+<textarea id="notes" rows="6" placeholder="What's new..."></textarea>
+<label>Setup installer</label>
+<input id="file" type="file" accept=".exe,application/vnd.microsoft.portable-executable">
+<button id="upload">Create Release & Upload Setup</button>
+<p id="status"></p>
+<p class="danger"><b>Security:</b> never put your GitHub token into the website source or share it. Revoke the token if you accidentally expose it.</p>
+</div>
+<script>
+const owner="liamsettles8-hash",repo="EPlus",api="https://api.github.com";
+const $=id=>document.getElementById(id);
+function headers(token,extra={}){return {"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"X-GitHub-Api-Version":"2026-03-10",...extra};}
+$("upload").onclick=async()=>{
+ const token=$("token").value.trim(),tag=$("tag").value.trim(),name=$("name").value.trim(),notes=$("notes").value, file=$("file").files[0];
+ if(!token||!tag||!file){$("status").textContent="Token, version tag, and setup file are required.";return;}
+ $("upload").disabled=true;$("status").textContent="Creating release...";
+ try{
+  const rr=await fetch(api+"/repos/"+owner+"/"+repo+"/releases",{method:"POST",headers:headers(token,{"Content-Type":"application/json"}),body:JSON.stringify({tag_name:tag,name:name||tag,body:notes,draft:false,prerelease:false,generate_release_notes:false})});
+  const release=await rr.json();if(!rr.ok)throw new Error(release.message||"Could not create release.");
+  $("status").textContent="Release created. Uploading "+file.name+"...";
+  const uploadUrl=release.upload_url.replace(/\{\?.*$/,"")+"?name="+encodeURIComponent(file.name);
+  const ur=await fetch(uploadUrl,{method:"POST",headers:headers(token,{"Content-Type":file.type||"application/octet-stream"}),body:file});
+  const asset=await ur.json();if(!ur.ok)throw new Error(asset.message||"Could not upload asset.");
+  $("status").textContent="Done! Release "+tag+" is live.\n"+asset.browser_download_url;
+ }catch(e){$("status").textContent="Error: "+e.message;}
+ finally{$("upload").disabled=false;}
+};
+</script>
+</body>
+</html>
