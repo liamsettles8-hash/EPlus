@@ -26,6 +26,7 @@
 #define SET_APPLY 206
 #define CHECK_UPDATES 110
 #define WM_APP_UPDATE_RESULT (WM_APP + 20)
+#define WM_APP_RUN_DONE (WM_APP + 21)
 
 #define EPLUS_VERSION L"1.5.0"
 #define EPLUS_REPO_OWNER L"liamsettles8-hash"
@@ -39,6 +40,9 @@ static int darkMode = 1;
 static int fontSize = 18;
 static COLORREF bgColor, panelColor, textColor, inputColor;
 static HBRUSH bgBrush = NULL, panelBrush = NULL, inputBrush = NULL;
+static HANDLE childStdinWrite = NULL;
+static WNDPROC oldConsoleProc = NULL;
+static volatile LONG runActive = 0;
 
 static void colors(void){
     if(darkMode){ bgColor=RGB(18,20,25); panelColor=RGB(28,31,38); textColor=RGB(235,238,245); inputColor=RGB(22,25,31); }
@@ -56,6 +60,25 @@ static void make_font(void){
 }
 static void set_text(HWND h,const wchar_t*s){SetWindowTextW(h,s);}
 static void append_console(const wchar_t*s){int n=GetWindowTextLengthW(console);SendMessageW(console,EM_SETSEL,n,n);SendMessageW(console,EM_REPLACESEL,FALSE,(LPARAM)s);}
+static void send_console_input(void){
+    if(!childStdinWrite)return;
+    int n=GetWindowTextLengthW(console);if(n<=0)return;
+    wchar_t *all=(wchar_t*)malloc(((size_t)n+1)*sizeof(wchar_t));if(!all)return;
+    GetWindowTextW(console,all,n+1);
+    int start=n;while(start>0&&all[start-1]!=L'\\n')start--;
+    while(start<n&&(all[start]==L'\\r'||all[start]==L'\\n'))start++;
+    int len=n-start;if(len<0)len=0;
+    wchar_t *line=(wchar_t*)malloc(((size_t)len+2)*sizeof(wchar_t));if(!line){free(all);return;}
+    memcpy(line,all+start,(size_t)len*sizeof(wchar_t));line[len]=L'\\n';line[len+1]=0;
+    int bytes=WideCharToMultiByte(CP_UTF8,0,line,len+1,NULL,0,NULL,NULL);
+    if(bytes>0){char *b=(char*)malloc((size_t)bytes);if(b){WideCharToMultiByte(CP_UTF8,0,line,len+1,b,bytes,NULL,NULL);DWORD written=0;WriteFile(childStdinWrite,b,(DWORD)bytes,&written,NULL);free(b);}}
+    SendMessageW(console,EM_SETSEL,n,n);SendMessageW(console,EM_REPLACESEL,FALSE,(LPARAM)L"\\r\\n");
+    free(line);free(all);
+}
+static LRESULT CALLBACK console_proc(HWND h,UINT m,WPARAM w,LPARAM l){
+    if(m==WM_KEYDOWN&&w==VK_RETURN&&childStdinWrite){send_console_input();return 0;}
+    return oldConsoleProc?CallWindowProcW(oldConsoleProc,h,m,w,l):DefWindowProcW(h,m,w,l);
+}
 
 static int savefile(const wchar_t*p){
     int n=GetWindowTextLengthW(editor); wchar_t*w=(wchar_t*)calloc((size_t)n+1,sizeof(wchar_t)); if(!w)return 0;
@@ -187,6 +210,7 @@ static void file_dialog(int save){
 
 static DWORD WINAPI run_worker(LPVOID param){
     (void)param;
+    if(InterlockedCompareExchange(&runActive,1,0)!=0){append_console(L"E#+ is already running.\\r\\n");return 0;}
     wchar_t tmp[MAX_PATH],dir[MAX_PATH],eng[MAX_PATH],cmd[2*MAX_PATH];
     GetTempPathW(MAX_PATH,tmp);wcscat_s(tmp,MAX_PATH,L"EPlusStudio_Run.eplus");
     if(!savefile(tmp)){append_console(L"Could not create temporary file.\r\n");return;}
@@ -196,16 +220,18 @@ static DWORD WINAPI run_worker(LPVOID param){
     swprintf_s(cmd,2*MAX_PATH,L"\"%s\" \"%s\"",eng,tmp);
 
     SECURITY_ATTRIBUTES sa={sizeof(sa),NULL,TRUE};
-    HANDLE r,w;
-    if(!CreatePipe(&r,&w,&sa,0))return;
+    HANDLE r,w,inR,inW;
+    if(!CreatePipe(&r,&w,&sa,0)){InterlockedExchange(&runActive,0);return 0;}
     SetHandleInformation(r,HANDLE_FLAG_INHERIT,0);
+    if(!CreatePipe(&inR,&inW,&sa,0)){CloseHandle(r);CloseHandle(w);InterlockedExchange(&runActive,0);return 0;}
+    SetHandleInformation(inW,HANDLE_FLAG_INHERIT,0);
 
     STARTUPINFOW si={sizeof(si)};
     PROCESS_INFORMATION pi={0};
     si.dwFlags=STARTF_USESTDHANDLES;
     si.hStdOutput=w;
     si.hStdError=w;
-    si.hStdInput=NULL;
+    si.hStdInput=inR;
 
     wchar_t cl[2*MAX_PATH];
     wcscpy_s(cl,2*MAX_PATH,cmd);
@@ -213,10 +239,11 @@ static DWORD WINAPI run_worker(LPVOID param){
 
     if(!CreateProcessW(NULL,cl,NULL,NULL,TRUE,CREATE_NO_WINDOW,NULL,NULL,&si,&pi)){
         append_console(L"ERROR: could not start engine.\r\n");
-        CloseHandle(r);CloseHandle(w);return;
+        CloseHandle(r);CloseHandle(w);CloseHandle(inR);CloseHandle(inW);InterlockedExchange(&runActive,0);return 0;
     }
 
-    CloseHandle(w);
+    CloseHandle(w);CloseHandle(inR);
+    childStdinWrite=inW;
     char b[4096];DWORD got;
     while(ReadFile(r,b,sizeof(b)-1,&got,NULL)&&got){
         b[got]=0;
@@ -229,7 +256,9 @@ static DWORD WINAPI run_worker(LPVOID param){
     DWORD code=0;GetExitCodeProcess(pi.hProcess,&code);
     wchar_t st[100];swprintf_s(st,100,L"\r\n> Process exited with code %lu\r\n",code);
     append_console(st);
+    if(childStdinWrite){CloseHandle(childStdinWrite);childStdinWrite=NULL;}
     CloseHandle(r);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);
+    InterlockedExchange(&runActive,0);
     return 0;
 }
 
@@ -272,7 +301,7 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
         colors();brushes();
         make_font();
         editor=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"# Welcome to E#+\r\nprint words \"Hello from E#+!\"\r\n\r\nset name to \"developer\"\r\nprint words \"Hello \" + name\r\n",WS_CHILD|WS_VISIBLE|WS_VSCROLL|WS_HSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,10,60,500,500,h,(HMENU)ED,0,0);
-        console=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"E#+ Console\r\n\r\n> Ready. Press Run to execute your E#+ program.\r\n",WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_READONLY,520,60,500,500,h,(HMENU)OUT,0,0);
+        console=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"E#+ Console\r\n\r\n> Ready. Press Run to execute your E#+ program.\r\n",WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,520,60,500,500,h,(HMENU)OUT,0,0);\n        oldConsoleProc=(WNDPROC)SetWindowLongPtrW(console,GWLP_WNDPROC,(LONG_PTR)console_proc);
         const wchar_t*names[]={L"Run",L"New",L"Open",L"Save",L"Guide",L"Settings",L"Updates",L"Clear"};int ids[]={RUN,NEW,OPEN,SAVE,GUIDE,SETTINGS,CHECK_UPDATES,CLEAR};
         for(int i=0;i<8;i++){HWND b=CreateWindowW(L"BUTTON",names[i],WS_CHILD|WS_VISIBLE,10+i*105,12,98,34,h,(HMENU)ids[i],0,0);SendMessageW(b,WM_SETFONT,(WPARAM)font,TRUE);}
         make_font();return 0;
