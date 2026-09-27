@@ -81,7 +81,7 @@ static int load_scene(const char *path,Scene *s) {
         if(!strncmp(line,"CANVAS ",7)){s->canvas=1;continue;}
         if(!strncmp(line,"BACKGROUND ",11)){char v[32]={0};if(sscanf_s(line+11,"%31s",v,(unsigned)_countof(v))==1)s->background=parse_hex(v);continue;}
         if(!strncmp(line,"TEXT ",5)){char n[128]={0},t[256]={0};if(sscanf_s(line,"TEXT %127s %255[^\r\n]",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2){UIElement*u=add_ui(s,n,"text");if(u)strncpy_s(u->text,sizeof(u->text),t,_TRUNCATE);}continue;}
-        if(!strncmp(line,"BUTTON ",7)){char n[128]={0},t[256]={0};if(sscanf_s(line,"BUTTON %127s %255[^\\r\\n]",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2){UIElement*u=add_ui(s,n,"button");if(u)strncpy_s(u->text,sizeof(u->text),t,_TRUNCATE);}continue;}
+        if(!strncmp(line,"BUTTON ",7)){char n[128]={0},t[256]={0};if(sscanf_s(line,"BUTTON %127s %255[^\r\n]",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2){UIElement*u=add_ui(s,n,"button");if(u)strncpy_s(u->text,sizeof(u->text),t,_TRUNCATE);}continue;}
         if(!strncmp(line,"UI_POS ",7)){char n[128]={0};if(sscanf_s(line,"UI_POS %127s %f %f",n,(unsigned)_countof(n),&x,&y)==3){int i=find_ui(s,n);if(i>=0){s->ui[i].x=x;s->ui[i].y=y;}}continue;}
         if(!strncmp(line,"UI_SIZE ",8)){char n[128]={0};if(sscanf_s(line,"UI_SIZE %127s %f %f",n,(unsigned)_countof(n),&x,&y)==3){int i=find_ui(s,n);if(i>=0){s->ui[i].w=x;s->ui[i].h=y;}}continue;}
         if(sscanf_s(line,"ENTITY %127s",a,(unsigned)_countof(a))==1) {
@@ -233,13 +233,29 @@ int main(int argc,char **argv) {
             if(locCamera>=0)SetShaderValue(realistic,locCamera,camPos,SHADER_UNIFORM_VEC3);
             if(locSunDir>=0)SetShaderValue(realistic,locSunDir,sunDir,SHADER_UNIFORM_VEC3);
         }
-        BeginDrawing();ClearBackground(s.background);
-        BeginMode3D(cam);
-        if(realistic.id>0)BeginShaderMode(realistic);
-        for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i]);
-        if(realistic.id>0)EndShaderMode();
-        EndMode3D();
-        if(s.canvas){Vector2 mp=GetMousePosition();for(int i=0;i<s.uiCount;i++){UIElement*u=&s.ui[i];if(!strcmp(u->type,"text"))DrawText(u->text,(int)u->x,(int)u->y,24,RAYWHITE);else if(!strcmp(u->type,"button")){Rectangle r={(float)u->x,(float)u->y,u->w,u->h};int h=CheckCollisionPointRec(mp,r);DrawRectangleRec(r,h?(Color){70,110,190,255}:(Color){50,65,90,255});DrawRectangleLinesEx(r,1,RAYWHITE);DrawText(u->text,(int)u->x+10,(int)u->y+10,20,RAYWHITE);}}}
+        BeginDrawing();
+        ClearBackground(s.background);
+        if(!s.canvas){
+            BeginMode3D(cam);
+            if(realistic.id>0)BeginShaderMode(realistic);
+            for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i]);
+            if(realistic.id>0)EndShaderMode();
+            EndMode3D();
+        }else{
+            Vector2 mp=GetMousePosition();
+            for(int i=0;i<s.uiCount;i++){
+                UIElement*u=&s.ui[i];
+                if(!strcmp(u->type,"text")){
+                    DrawText(u->text,(int)u->x,(int)u->y,24,RAYWHITE);
+                }else if(!strcmp(u->type,"button")){
+                    Rectangle r={(float)u->x,(float)u->y,u->w,u->h};
+                    int h=CheckCollisionPointRec(mp,r);
+                    DrawRectangleRec(r,h?(Color){70,110,190,255}:(Color){50,65,90,255});
+                    DrawRectangleLinesEx(r,1,RAYWHITE);
+                    DrawText(u->text,(int)u->x+10,(int)u->y+10,20,RAYWHITE);
+                }
+            }
+        }
         EndDrawing();
     }
     if(realistic.id>0)UnloadShader(realistic); EnableCursor();CloseWindow();return 0;
