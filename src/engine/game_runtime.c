@@ -8,11 +8,11 @@
 
 #define MAX_ENEMIES 128
 
-typedef struct {int width,height,cubes,maxEnemies,winScore;float arena,px,py,pz,speed,health,enemyHealth,enemySpeed,enemyDamage,weaponDamage,weaponRate,spawnRate,winTime;char title[256],playerName[128],weaponName[128],enemyName[128];} Scene;
+typedef struct {int width,height,cubes,maxEnemies,winScore,moveForward,moveBackward,moveLeft,moveRight,canFire;float arena,px,py,pz,speed,health,enemyHealth,enemySpeed,enemyDamage,weaponDamage,weaponRate,spawnRate,winTime;char title[256],playerName[128],weaponName[128],enemyName[128];} Scene;
 typedef struct {Vector3 pos;float health;int alive;} Enemy;
 
 static int load_scene(const char*p,Scene*s){
- FILE*f=fopen(p,"r");char line[1024];if(!f)return 0;memset(s,0,sizeof(*s));s->width=1280;s->height=720;s->py=2;s->pz=12;s->speed=5;s->health=100;s->enemyHealth=30;s->enemySpeed=2;s->enemyDamage=10;s->weaponDamage=15;s->weaponRate=.2f;s->spawnRate=2;s->maxEnemies=20;s->winScore=1000;s->arena=40;strcpy_s(s->title,sizeof(s->title),"E#+ Game");strcpy_s(s->playerName,sizeof(s->playerName),"Hero");strcpy_s(s->weaponName,sizeof(s->weaponName),"Blaster");strcpy_s(s->enemyName,sizeof(s->enemyName),"Enemy");
+ FILE*f=fopen(p,"r");char line[1024];if(!f)return 0;memset(s,0,sizeof(*s));s->width=1280;s->height=720;s->py=2;s->pz=12;s->speed=5;s->health=100;s->enemyHealth=30;s->enemySpeed=2;s->enemyDamage=10;s->weaponDamage=15;s->weaponRate=.2f;s->spawnRate=2;s->maxEnemies=20;s->winScore=1000;s->arena=40;strcpy_s(s->title,sizeof(s->title),"E#+ Game");strcpy_s(s->playerName,sizeof(s->playerName),"Hero");strcpy_s(s->weaponName,sizeof(s->weaponName),"Blaster");strcpy_s(s->enemyName,sizeof(s->enemyName),"Enemy");s->moveForward=0;s->moveBackward=0;s->moveLeft=0;s->moveRight=0;s->canFire=0;
  while(fgets(line,sizeof(line),f)){
   if(sscanf_s(line,"WINDOW_WIDTH %d",&s->width)==1)continue;if(sscanf_s(line,"WINDOW_HEIGHT %d",&s->height)==1)continue;
   if(!strncmp(line,"TITLE ",6)){sscanf_s(line+6,"%255[^\r\n]",s->title,(unsigned)_countof(s->title));continue;}
@@ -21,7 +21,7 @@ static int load_scene(const char*p,Scene*s){
   if(sscanf_s(line,"ARENA %f",&s->arena)==1)continue;if(sscanf_s(line,"ENEMY_NAME %127[^\r\n]",s->enemyName,(unsigned)_countof(s->enemyName))==1)continue;
   if(sscanf_s(line,"ENEMY_HEALTH %f",&s->enemyHealth)==1)continue;if(sscanf_s(line,"ENEMY_SPEED %f",&s->enemySpeed)==1)continue;if(sscanf_s(line,"ENEMY_DAMAGE %f",&s->enemyDamage)==1)continue;
   if(sscanf_s(line,"WEAPON_NAME %127[^\r\n]",s->weaponName,(unsigned)_countof(s->weaponName))==1)continue;if(sscanf_s(line,"WEAPON_DAMAGE %f",&s->weaponDamage)==1)continue;if(sscanf_s(line,"WEAPON_RATE %f",&s->weaponRate)==1)continue;
-  if(sscanf_s(line,"CUBES %d",&s->cubes)==1)continue;if(sscanf_s(line,"WIN_SCORE %d",&s->winScore)==1)continue;if(sscanf_s(line,"WIN_TIME %f",&s->winTime)==1)continue;if(sscanf_s(line,"SPAWN_RATE %f",&s->spawnRate)==1)continue;if(sscanf_s(line,"MAX_ENEMIES %d",&s->maxEnemies)==1)continue;
+  if(sscanf_s(line,"CUBES %d",&s->cubes)==1)continue;if(sscanf_s(line,"WIN_SCORE %d",&s->winScore)==1)continue;if(sscanf_s(line,"WIN_TIME %f",&s->winTime)==1)continue;if(sscanf_s(line,"SPAWN_RATE %f",&s->spawnRate)==1)continue;if(sscanf_s(line,"MAX_ENEMIES %d",&s->maxEnemies)==1)continue;if(!strncmp(line,"ACTION ",7)){const char*a=line+7;if(strstr(a,"key \"W\""))s->moveForward=1;if(strstr(a,"key \"S\""))s->moveBackward=1;if(strstr(a,"key \"A\""))s->moveLeft=1;if(strstr(a,"key \"D\""))s->moveRight=1;if(strstr(a,"mouse button \"left\""))s->canFire=1;continue;}
  }fclose(f);return 1;
 }
 
