@@ -40,7 +40,11 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"game max enemies ",18)){int v=20;sscanf_s(s+18,"%d",&v);fprintf(f,"MAX_ENEMIES %d\n",v);}
   else if(!strncmp(s,"game win score ",15)){int v=1000;sscanf_s(s+15,"%d",&v);fprintf(f,"WIN_SCORE %d\n",v);}
   else if(!strncmp(s,"game win time ",15)){float v=0;sscanf_s(s+15,"%f",&v);fprintf(f,"WIN_TIME %.3f\n",v);}
-  else if(!strncmp(s,"create ",7)&&strstr(s," cubes")){int v=0;sscanf_s(s+7,"%d",&v);fprintf(f,"CUBES %d\n",v);}\n  else if(!strncmp(s,"if key ",7)){fprintf(f,"ACTION %s\n",s+3);}\n  else if(!strncmp(s,"if mouse ",9)){fprintf(f,"ACTION %s\n",s+3);}\n  else if(!strncmp(s,"player move ",12)){fprintf(f,"ACTION %s\n",s);}\n  else if(!strncmp(s,"weapon fire",11)){fprintf(f,"ACTION %s\n",s);}
+  else if(!strncmp(s,"create ",7)&&strstr(s," cubes")){int v=0;sscanf_s(s+7,"%d",&v);fprintf(f,"CUBES %d\n",v);}
+  else if(!strncmp(s,"if key ",7)){fprintf(f,"ACTION %s\n",s+3);}
+  else if(!strncmp(s,"if mouse ",9)){fprintf(f,"ACTION %s\n",s+3);}
+  else if(!strncmp(s,"player move ",12)){fprintf(f,"ACTION %s\n",s);}
+  else if(!strncmp(s,"weapon fire",11)){fprintf(f,"ACTION %s\n",s);}
   else if(!strncmp(s,"load model ",11)){char q[260];quoted(s,q,sizeof(q));fprintf(f,"MODEL %s\n",q);}
   line=strtok_s(NULL,"\r\n",&ctx);}
  fclose(f);free(copy);return 1;
