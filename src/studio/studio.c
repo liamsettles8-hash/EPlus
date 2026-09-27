@@ -189,16 +189,45 @@ static void run_program(void){
     wchar_t tmp[MAX_PATH],dir[MAX_PATH],eng[MAX_PATH],cmd[2*MAX_PATH];
     GetTempPathW(MAX_PATH,tmp);wcscat_s(tmp,MAX_PATH,L"EPlusStudio_Run.eplus");
     if(!savefile(tmp)){append_console(L"Could not create temporary file.\r\n");return;}
-    GetModuleFileNameW(NULL,dir,MAX_PATH);wchar_t*slash=wcsrchr(dir,L'\\');if(slash)*slash=0;swprintf_s(eng,MAX_PATH,L"%s\\eplus-engine.exe",dir);
+    GetModuleFileNameW(NULL,dir,MAX_PATH);wchar_t*slash=wcsrchr(dir,L'\\');if(slash)*slash=0;
+    swprintf_s(eng,MAX_PATH,L"%s\\eplus-engine.exe",dir);
     if(GetFileAttributesW(eng)==INVALID_FILE_ATTRIBUTES){append_console(L"ERROR: eplus-engine.exe was not found next to EPlusStudio.exe.\r\n");return;}
     swprintf_s(cmd,2*MAX_PATH,L"\"%s\" \"%s\"",eng,tmp);
-    SECURITY_ATTRIBUTES sa={sizeof(sa),NULL,TRUE};HANDLE r,w;if(!CreatePipe(&r,&w,&sa,0))return;SetHandleInformation(r,HANDLE_FLAG_INHERIT,0);
-    STARTUPINFOW si={sizeof(si)};PROCESS_INFORMATION pi={0};si.dwFlags=STARTF_USESTDHANDLES;si.hStdOutput=w;si.hStdError=w;
-    wchar_t cl[2*MAX_PATH];wcscpy_s(cl,2*MAX_PATH,cmd);set_text(console,L"E#+ Console\r\n\r\n> Running...\r\n");
-    if(!CreateProcessW(NULL,cl,NULL,NULL,TRUE,CREATE_NO_WINDOW,NULL,NULL,&si,&pi)){append_console(L"ERROR: could not start engine.\r\n");CloseHandle(r);CloseHandle(w);return;}
-    CloseHandle(w);char b[4096];DWORD got;
-    while(ReadFile(r,b,sizeof(b)-1,&got,NULL)&&got){b[got]=0;int m=MultiByteToWideChar(CP_UTF8,0,b,(int)got,NULL,0);wchar_t*x=(wchar_t*)malloc(((size_t)m+1)*sizeof(wchar_t));if(x){MultiByteToWideChar(CP_UTF8,0,b,(int)got,x,m);x[m]=0;append_console(x);free(x);}}
-    WaitForSingleObject(pi.hProcess,INFINITE);DWORD code=0;GetExitCodeProcess(pi.hProcess,&code);wchar_t st[100];swprintf_s(st,100,L"\r\n> Process exited with code %lu\r\n",code);append_console(st);
+
+    SECURITY_ATTRIBUTES sa={sizeof(sa),NULL,TRUE};
+    HANDLE r,w;
+    if(!CreatePipe(&r,&w,&sa,0))return;
+    SetHandleInformation(r,HANDLE_FLAG_INHERIT,0);
+
+    STARTUPINFOW si={sizeof(si)};
+    PROCESS_INFORMATION pi={0};
+    si.dwFlags=STARTF_USESTDHANDLES;
+    si.hStdOutput=w;
+    si.hStdError=w;
+    si.hStdInput=GetStdHandle(STD_INPUT_HANDLE);
+
+    wchar_t cl[2*MAX_PATH];
+    wcscpy_s(cl,2*MAX_PATH,cmd);
+    set_text(console,L"E#+ Console\r\n\r\n> Running...\r\n");
+
+    if(!CreateProcessW(NULL,cl,NULL,NULL,TRUE,CREATE_NO_WINDOW,NULL,NULL,&si,&pi)){
+        append_console(L"ERROR: could not start engine.\r\n");
+        CloseHandle(r);CloseHandle(w);return;
+    }
+
+    CloseHandle(w);
+    char b[4096];DWORD got;
+    while(ReadFile(r,b,sizeof(b)-1,&got,NULL)&&got){
+        b[got]=0;
+        int m=MultiByteToWideChar(CP_UTF8,0,b,(int)got,NULL,0);
+        wchar_t*x=(wchar_t*)malloc(((size_t)m+1)*sizeof(wchar_t));
+        if(x){MultiByteToWideChar(CP_UTF8,0,b,(int)got,x,m);x[m]=0;append_console(x);free(x);}
+    }
+
+    WaitForSingleObject(pi.hProcess,INFINITE);
+    DWORD code=0;GetExitCodeProcess(pi.hProcess,&code);
+    wchar_t st[100];swprintf_s(st,100,L"\r\n> Process exited with code %lu\r\n",code);
+    append_console(st);
     CloseHandle(r);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);
 }
 
