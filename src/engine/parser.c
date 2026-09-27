@@ -16,35 +16,96 @@ static char *trim(char*s){char*e;while(*s&&isspace((unsigned char)*s))s++;e=s+st
 static struct V*findv(const char*n){for(int i=0;i<vc;i++)if(!strcmp(vars[i].n,n))return &vars[i];return NULL;}
 static void setv(const char*n,const char*v){struct V*x=findv(n);if(!x&&vc<MAXV){x=&vars[vc++];strncpy_s(x->n,sizeof(x->n),n,_TRUNCATE);}if(x)strncpy_s(x->v,sizeof(x->v),v,_TRUNCATE);}
 static int ask_input(const char *prompt,char *out,size_t cap){
+    if(!out || cap==0)return 0;
+    out[0]=0;
+
     static const char cls[]="EPlusAskInput";
     static int registered=0;
+    HINSTANCE inst=GetModuleHandleA(NULL);
+
     if(!registered){
-        WNDCLASSA wc={0};wc.lpfnWndProc=DefWindowProcA;wc.hInstance=GetModuleHandleA(NULL);wc.lpszClassName=cls;wc.hCursor=LoadCursor(NULL,IDC_ARROW);
-        if(!RegisterClassA(&wc) && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return 0;
+        WNDCLASSA wc;
+        ZeroMemory(&wc,sizeof(wc));
+        wc.lpfnWndProc=DefWindowProcA;
+        wc.hInstance=inst;
+        wc.lpszClassName=cls;
+        wc.hCursor=LoadCursorA(NULL,IDC_ARROW);
+        if(!RegisterClassA(&wc)){
+            DWORD err=GetLastError();
+            if(err!=ERROR_CLASS_ALREADY_EXISTS)return 0;
+        }
         registered=1;
     }
-    HWND w=CreateWindowExA(WS_EX_DLGMODALFRAME,cls,"E#+ Input",WS_CAPTION|WS_SYSMENU|WS_VISIBLE,
-        CW_USEDEFAULT,CW_USEDEFAULT,520,180,NULL,NULL,GetModuleHandleA(NULL),NULL);
+
+    HWND w=CreateWindowExA(
+        0,cls,"E#+ Input",
+        WS_CAPTION|WS_SYSMENU|WS_VISIBLE,
+        CW_USEDEFAULT,CW_USEDEFAULT,520,180,
+        NULL,NULL,inst,NULL
+    );
     if(!w)return 0;
-    HWND label=CreateWindowA("STATIC",prompt,WS_CHILD|WS_VISIBLE,20,20,460,25,w,NULL,NULL,NULL);
-    HWND edit=CreateWindowExA(WS_EX_CLIENTEDGE,"EDIT","",WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
-        20,55,460,28,w,(HMENU)1001,NULL,NULL);
-    HWND ok=CreateWindowA("BUTTON","OK",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
-        350,100,130,30,w,(HMENU)1002,NULL,NULL);
-    (void)label;(void)ok;
-    SendMessageA(edit,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
-    SendMessageA(w,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);
-    SetFocus(edit);
-    int done=0,cancelled=0;MSG msg;
-    while(!done&&GetMessageA(&msg,NULL,0,0)>0){
-        if(msg.message==WM_KEYDOWN&&msg.wParam==VK_RETURN){GetWindowTextA(edit,out,(int)cap);done=1;break;}
-        if(msg.message==WM_KEYDOWN&&msg.wParam==VK_ESCAPE){cancelled=1;done=1;break;}
-        if(msg.message==WM_COMMAND&&LOWORD(msg.wParam)==1002){GetWindowTextA(edit,out,(int)cap);done=1;break;}
-        if(msg.message==WM_CLOSE){cancelled=1;done=1;break;}
-        TranslateMessage(&msg);DispatchMessageA(&msg);
+
+    HWND label=CreateWindowExA(
+        0,"STATIC",prompt ? prompt : "",
+        WS_CHILD|WS_VISIBLE,
+        20,20,460,25,w,NULL,inst,NULL
+    );
+    HWND edit=CreateWindowExA(
+        WS_EX_CLIENTEDGE,"EDIT","",
+        WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
+        20,55,460,28,w,(HMENU)(INT_PTR)1001,inst,NULL
+    );
+    HWND ok=CreateWindowExA(
+        0,"BUTTON","OK",
+        WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
+        350,100,130,30,w,(HMENU)(INT_PTR)1002,inst,NULL
+    );
+
+    if(!label || !edit || !ok){
+        if(label)DestroyWindow(label);
+        if(edit)DestroyWindow(edit);
+        if(ok)DestroyWindow(ok);
+        DestroyWindow(w);
+        return 0;
     }
-    DestroyWindow(w);
-    return cancelled?0:1;
+
+    /* Do not use GetStockObject/WM_SETFONT here.  The default control
+       font is safe and avoids depending on GDI objects in this dialog. */
+    SetFocus(edit);
+
+    int done=0,cancelled=0;
+    MSG msg;
+    while(!done){
+        int gm=GetMessageA(&msg,NULL,0,0);
+        if(gm<=0)break;
+
+        if(msg.message==WM_KEYDOWN && msg.wParam==VK_RETURN){
+            GetWindowTextA(edit,out,(int)cap);
+            done=1;
+            continue;
+        }
+        if(msg.message==WM_KEYDOWN && msg.wParam==VK_ESCAPE){
+            cancelled=1;
+            done=1;
+            continue;
+        }
+        if(msg.message==WM_COMMAND && LOWORD(msg.wParam)==1002){
+            GetWindowTextA(edit,out,(int)cap);
+            done=1;
+            continue;
+        }
+        if(msg.message==WM_CLOSE){
+            cancelled=1;
+            done=1;
+            continue;
+        }
+
+        TranslateMessage(&msg);
+        DispatchMessageA(&msg);
+    }
+
+    if(IsWindow(w))DestroyWindow(w);
+    return (!cancelled && done) ? 1 : 0;
 }
 
 static int is_number(const char*s){if(!*s)return 0;char*e;strtod(s,&e);return *e==0;}
