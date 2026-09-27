@@ -86,7 +86,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
-				INFOPLIST_FILE = ios/EPlusIOS/Info.plist;
+				INFOPLIST_FILE = EPlusIOS/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.eplus.ios;
 				PRODUCT_NAME = EPlusIOS;
@@ -102,7 +102,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
-				INFOPLIST_FILE = ios/EPlusIOS/Info.plist;
+				INFOPLIST_FILE = EPlusIOS/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.eplus.ios;
 				PRODUCT_NAME = EPlusIOS;
