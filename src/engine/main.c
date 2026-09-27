@@ -27,6 +27,7 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"window width ",13)){int v=1280;sscanf_s(s+13,"%d",&v);fprintf(f,"WINDOW_WIDTH %d\n",v);}
   else if(!strncmp(s,"window height ",14)){int v=720;sscanf_s(s+14,"%d",&v);fprintf(f,"WINDOW_HEIGHT %d\n",v);}
   else if(!strncmp(s,"window title ",13)){quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
+  else if(!strncmp(s,"shader ",7)){char name[64]={0};sscanf_s(s+7,"%63s",name,(unsigned)_countof(name));fprintf(f,"SHADER %s\n",name);}
   else if(!strncmp(s,"camera ",7))fprintf(f,"CAMERA %s\n",strstr(s,"first person")?"first_person":"free");
   else if(!strncmp(s,"player create ",14)){quoted(s,q,sizeof(q));strncpy_s(player,sizeof(player),q,_TRUNCATE);fprintf(f,"ENTITY %s MODEL cube\nCONTROL %s\n",player,player);strncpy_s(modelOwner,sizeof(modelOwner),player,_TRUNCATE);}
   else if(!strncmp(s,"player position ",16)){float a=0,b=2,c=12;sscanf_s(s+16,"%f %f %f",&a,&b,&c);fprintf(f,"POS %s %.3f %.3f %.3f\n",player,a,b,c);}
