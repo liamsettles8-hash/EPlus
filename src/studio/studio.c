@@ -208,7 +208,7 @@ static void file_dialog(int save){
 
 static DWORD WINAPI run_worker(LPVOID param){
     (void)param;
-    if(InterlockedCompareExchange(&runActive,1,0)!=0){append_console(L"E#+ is already running.\\r\\n");return 0;}
+    if(InterlockedCompareExchange(&runActive,1,0)!=0){append_console(L"E#+ is already running.\r\n");return 0;}
     wchar_t tmp[MAX_PATH],dir[MAX_PATH],eng[MAX_PATH],cmd[2*MAX_PATH];
     GetTempPathW(MAX_PATH,tmp);wcscat_s(tmp,MAX_PATH,L"EPlusStudio_Run.eplus");
     if(!savefile(tmp)){append_console(L"Could not create temporary file.\r\n");InterlockedExchange(&runActive,0);return 0;}
