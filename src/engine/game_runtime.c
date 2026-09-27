@@ -92,10 +92,10 @@ static Vector3 forward_from(float yaw,float pitch){
     return (Vector3){cosf(yaw*DEG2RAD)*cosf(pitch*DEG2RAD),sinf(pitch*DEG2RAD),sinf(yaw*DEG2RAD)*cosf(pitch*DEG2RAD)};
 }
 static int key_code(const char *key) {
-    if(strlen(key)==1) {
-        char c=(char)toupper((unsigned char)key[0]);
-        if(c>='A'&&c<='Z') return KEY_A+(c-'A');
-    }
+    if(!strcmp(key,"W"))return KEY_W;
+    if(!strcmp(key,"A"))return KEY_A;
+    if(!strcmp(key,"S"))return KEY_S;
+    if(!strcmp(key,"D"))return KEY_D;
     if(!strcmp(key,"SPACE"))return KEY_SPACE;
     if(!strcmp(key,"ENTER"))return KEY_ENTER;
     if(!strcmp(key,"ESC"))return KEY_ESCAPE;
