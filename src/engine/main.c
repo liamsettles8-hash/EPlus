@@ -43,6 +43,7 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"object rotation ",16)){char n[128]={0};float x=0,y=0,z=0;if(sscanf_s(s+16," \"%127[^\"]\" %f %f %f",n,(unsigned)_countof(n),&x,&y,&z)==4)fprintf(f,"ROT %s %.3f %.3f %.3f\n",n,x,y,z);}
   else if(!strncmp(s,"object color ",13)){char n[128]={0};int r=255,g=255,b=255;if(sscanf_s(s+13," \"%127[^\"]\" %d %d %d",n,(unsigned)_countof(n),&r,&g,&b)==4)fprintf(f,"COLOR %s %d %d %d\n",n,r,g,b);}
   else if(!strncmp(s,"object texture ",15)){char n[128]={0},a[128]={0};if(sscanf_s(s+15," \"%127[^\"]\" \"%127[^\"]\"",n,(unsigned)_countof(n),a,(unsigned)_countof(a))==2)fprintf(f,"TEXTURE %s %s\n",n,a);}
+  else if(!strncmp(s,"object follow ",14)){char n[128]={0},t[128]={0};if(sscanf_s(s+14," \"%127[^\"]\" \"%127[^\"]\"",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2)fprintf(f,"FOLLOW %s %s\n",n,t);}
   else if(!strncmp(s,"object clickable ",17)){char n[128]={0};if(sscanf_s(s+17," \"%127[^\"]\"",n,(unsigned)_countof(n))==1)fprintf(f,"CLICKABLE %s\n",n);}
   else if(!strncmp(s,"when object ",12)){char n[128]={0};if(sscanf_s(s+12," \"%127[^\"]\"",n,(unsigned)_countof(n))==1)fprintf(f,"SCRIPT_OBJECT %s\n",n);}
   else if(!strncmp(s,"every second",12)){fprintf(f,"TIMER_START\n");}
