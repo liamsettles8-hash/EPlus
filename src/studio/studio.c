@@ -268,7 +268,7 @@ static void extensions_window(HWND h){
 static int http_request_json(const wchar_t*host,const wchar_t*path,const wchar_t*method,const char*body,const wchar_t*headers,char**out,DWORD*outLen){
  *out=NULL;*outLen=0;HINTERNET s=WinHttpOpen(L"EPlusStudio/1.0",WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS,0);if(!s)return 0;
  WinHttpSetTimeouts(s,5000,5000,5000,5000);
- HINTERNET c=WinHttpConnect(s,host,INTERNET_DEFAULT_HTTPS_PORT,0);if(!c){WinHttpCloseHandle(s);return 0;}HINTERNET r=WinHttpOpenRequest(c,method,path,NULL,WINHTTP_NO_REFERER,L"application/json",WINHTTP_FLAG_SECURE);if(!r){WinHttpCloseHandle(c);WinHttpCloseHandle(s);return 0;}
+ HINTERNET c=WinHttpConnect(s,host,INTERNET_DEFAULT_HTTPS_PORT,0);if(!c){WinHttpCloseHandle(s);return 0;}HINTERNET r=WinHttpOpenRequest(c,method,path,NULL,WINHTTP_NO_REFERER,WINHTTP_DEFAULT_ACCEPT_TYPES,WINHTTP_FLAG_SECURE);if(!r){WinHttpCloseHandle(c);WinHttpCloseHandle(s);return 0;}
  const wchar_t*h=headers?headers:L"Content-Type: application/json\r\n";BOOL ok=WinHttpSendRequest(r,h,(DWORD)-1L,(LPVOID)(body?body:""),body?(DWORD)strlen(body):0,body?(DWORD)strlen(body):0,0);if(ok)ok=WinHttpReceiveResponse(r,NULL);
  DWORD st=0,ss=sizeof(st);if(ok)WinHttpQueryHeaders(r,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,WINHTTP_HEADER_NAME_BY_INDEX,&st,&ss,WINHTTP_NO_HEADER_INDEX);
  char*b=NULL;DWORD n=0;if(ok)for(;;){DWORD a=0;if(!WinHttpQueryDataAvailable(r,&a)||!a)break;char*nb=(char*)realloc(b,(size_t)n+a+1);if(!nb){free(b);b=NULL;break;}b=nb;DWORD g=0;if(!WinHttpReadData(r,b+n,a,&g)||!g)break;n+=g;}if(b)b[n]=0;*out=b;*outLen=n;WinHttpCloseHandle(r);WinHttpCloseHandle(c);WinHttpCloseHandle(s);return ok&&st>=200&&st<300&&b!=NULL;
@@ -321,7 +321,7 @@ static DWORD WINAPI auth_worker(LPVOID param){
     wchar_t wp2[512];
     MultiByteToWideChar(CP_UTF8,0,path,-1,wp2,512);
     char *resp=NULL;DWORD len=0;
-    if(!http_request_json(L"identitytoolkit.googleapis.com",wp2,L"POST",body,L"Content-Type: application/json\\r\\n",&resp,&len)){
+    if(!http_request_json(L"identitytoolkit.googleapis.com",wp2,L"POST",body,L"Content-Type: application/json\r\n",&resp,&len)){
         strcpy_s(res->error,sizeof(res->error),"Could not connect to Firebase. Check the API key and internet connection.");
     }else if(!json_string(resp,"idToken",res->token,sizeof(res->token))||!json_string(resp,"localId",res->uid,sizeof(res->uid))){
         json_string(resp,"message",res->error,sizeof(res->error));
