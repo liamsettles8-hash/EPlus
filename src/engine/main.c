@@ -34,6 +34,10 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"2d position ",12)){char n[128]={0};float x=0,y=0;sscanf_s(s+12,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_POS %s %.1f %.1f\n",n,x,y);}
   else if(!strncmp(s,"2d size ",8)){char n[128]={0};float x=120,y=40;sscanf_s(s+8,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_SIZE %s %.1f %.1f\n",n,x,y);}
   else if(!strncmp(s,"if button ",10)){char n[128]={0};sscanf_s(s,"if button \"%127[^\"]\" is clicked",n,(unsigned)_countof(n));fprintf(f,"RULE BUTTON %s CLICK 0\n",n);}
+  else if(!strncmp(s,"when button ",12)){char n[128]={0};sscanf_s(s,"when button \"%127[^\"]\" is clicked",n,(unsigned)_countof(n));fprintf(f,"SCRIPT_BUTTON %s\n",n);}
+  else if(!strncmp(s,"add number ",11)){char var[128]={0};float v=1;sscanf_s(s+11,"%f to %127s",&v,var,(unsigned)_countof(var));fprintf(f,"SCRIPT ADD %s %.3f\n",var,v);}
+  else if(!strncmp(s,"set number ",11)){char var[128]={0};float v=0;sscanf_s(s+11,"%127s to %f",var,(unsigned)_countof(var),&v);fprintf(f,"SCRIPT SET %s %.3f\n",var,(unsigned)_countof(var),&v);}
+  else if(!strncmp(s,"change text ",12)){char ui[128]={0};sscanf_s(s+12,"%127s",ui,(unsigned)_countof(ui));quoted(s,q,sizeof(q));fprintf(f,"SCRIPT TEXT %s %s\n",ui,q);}
   else if(!strncmp(s,"shader ",7)){char name[64]={0};sscanf_s(s+7,"%63s",name,(unsigned)_countof(name));fprintf(f,"SHADER %s\n",name);}
   else if(!strncmp(s,"camera ",7))fprintf(f,"CAMERA %s\n",strstr(s,"first person")?"first_person":"free");
   else if(!strncmp(s,"player create ",14)){quoted(s,q,sizeof(q));strncpy_s(player,sizeof(player),q,_TRUNCATE);fprintf(f,"ENTITY %s MODEL cube\nCONTROL %s\n",player,player);strncpy_s(modelOwner,sizeof(modelOwner),player,_TRUNCATE);}
