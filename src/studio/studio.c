@@ -223,7 +223,7 @@ static LRESULT CALLBACK ext_canvas_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     if(m==WM_LBUTTONDOWN&&extMode==1){extDrawing=1;SetCapture(w);return 0;}
     if(m==WM_LBUTTONUP){extDrawing=0;ReleaseCapture();return 0;}
     if(m==WM_MOUSEMOVE&&extDrawing&&extMode==1){
-        HDC dc=GetDC(w);int x=GET_X_LPARAM(lp),y=GET_Y_LPARAM(lp);
+        HDC dc=GetDC(w);int x=(int)(short)LOWORD(lp),y=(int)(short)HIWORD(lp);
         HBRUSH b=CreateSolidBrush(extColor);HGDIOBJ old=SelectObject(dc,b);
         Ellipse(dc,x-extBrush,y-extBrush,x+extBrush,y+extBrush);
         SelectObject(dc,old);DeleteObject(b);ReleaseDC(w,dc);return 0;
