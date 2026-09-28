@@ -266,6 +266,7 @@ static void extensions_window(HWND h){
 
 static int http_request_json(const wchar_t*host,const wchar_t*path,const wchar_t*method,const char*body,const wchar_t*headers,char**out,DWORD*outLen){
  *out=NULL;*outLen=0;HINTERNET s=WinHttpOpen(L"EPlusStudio/1.0",WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS,0);if(!s)return 0;
+ WinHttpSetTimeouts(s,5000,5000,5000,5000);
  HINTERNET c=WinHttpConnect(s,host,INTERNET_DEFAULT_HTTPS_PORT,0);if(!c){WinHttpCloseHandle(s);return 0;}HINTERNET r=WinHttpOpenRequest(c,method,path,NULL,WINHTTP_NO_REFERER,L"application/json",WINHTTP_FLAG_SECURE);if(!r){WinHttpCloseHandle(c);WinHttpCloseHandle(s);return 0;}
  const wchar_t*h=headers?headers:L"Content-Type: application/json\r\n";BOOL ok=WinHttpSendRequest(r,h,(DWORD)-1L,(LPVOID)(body?body:""),body?(DWORD)strlen(body):0,body?(DWORD)strlen(body):0,0);if(ok)ok=WinHttpReceiveResponse(r,NULL);
  DWORD st=0,ss=sizeof(st);if(ok)WinHttpQueryHeaders(r,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,WINHTTP_HEADER_NAME_BY_INDEX,&st,&ss,WINHTTP_NO_HEADER_INDEX);
@@ -293,7 +294,7 @@ static void show_auth(HWND owner);
 static void firebase_auth(HWND w,int signup){
  wchar_t we[320],wp[320];GetWindowTextW(GetDlgItem(w,501),we,320);GetWindowTextW(GetDlgItem(w,502),wp,320);if(!we[0]||!wp[0]){SetWindowTextW(GetDlgItem(w,503),L"Enter both email and password.");return;}
  int eb=WideCharToMultiByte(CP_UTF8,0,we,-1,NULL,0,NULL,NULL),pb=WideCharToMultiByte(CP_UTF8,0,wp,-1,NULL,0,NULL,NULL);char*e=(char*)malloc(eb),*p=(char*)malloc(pb);if(!e||!p){free(e);free(p);return;}WideCharToMultiByte(CP_UTF8,0,we,-1,e,eb,NULL,NULL);WideCharToMultiByte(CP_UTF8,0,wp,-1,p,pb,NULL,NULL);
- char body[1400];sprintf_s(body,sizeof(body),"{\"email\":\"%s\",\"password\":\"%s\",\"returnSecureToken\":true}",e,p);free(e);free(p);char path[512];sprintf_s(path,sizeof(path),"/v1/accounts:%s?key=%s",signup?"signUp":"signInWithPassword",FIREBASE_API_KEY);wchar_t wp2[512];MultiByteToWideChar(CP_UTF8,0,path,-1,wp2,512);
+ char ee[700],pp[700];json_escape(e,ee,sizeof(ee));json_escape(p,pp,sizeof(pp));char body[1600];sprintf_s(body,sizeof(body),"{\"email\":\"%s\",\"password\":\"%s\",\"returnSecureToken\":true}",ee,pp);free(e);free(p);char path[512];sprintf_s(path,sizeof(path),"/v1/accounts:%s?key=%s",signup?"signUp":"signInWithPassword",FIREBASE_API_KEY);wchar_t wp2[512];MultiByteToWideChar(CP_UTF8,0,path,-1,wp2,512);
  char*resp=NULL;DWORD len=0;if(!http_request_json(L"identitytoolkit.googleapis.com",wp2,L"POST",body,L"Content-Type: application/json\r\n",&resp,&len)){SetWindowTextW(GetDlgItem(w,503),L"Could not connect to Firebase. Check the API key and internet connection.");free(resp);return;}
  if(!json_string(resp,"idToken",firebaseIdToken,sizeof(firebaseIdToken))||!json_string(resp,"localId",firebaseUid,sizeof(firebaseUid))){char msg[512]={0};json_string(resp,"message",msg,sizeof(msg));free(resp);wchar_t wm[512];MultiByteToWideChar(CP_UTF8,0,msg,-1,wm,512);SetWindowTextW(GetDlgItem(w,503),wm[0]?wm:L"Firebase returned an invalid response.");firebaseIdToken[0]=0;firebaseUid[0]=0;return;}json_string(resp,"email",firebaseEmail,sizeof(firebaseEmail));free(resp);enter_editor(mainWnd,0);
 }
