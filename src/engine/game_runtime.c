@@ -53,7 +53,7 @@ typedef struct {
 } Scene;
 
 static int find_ui(Scene *s,const char *name){for(int i=0;i<s->uiCount;i++)if(!strcmp(s->ui[i].name,name))return i;return -1;}
-static UIElement *add_ui(Scene *s,const char *name,const char *type){if(s->uiCount>=MAX_UI)return NULL;UIElement*u=&s->ui[s->uiCount++];memset(u,0,sizeof(*u));strncpy_s(u->name,sizeof(u->name),name,_TRUNCATE);strncpy_s(u->type,sizeof(u->type),type,_TRUNCATE);u->w=120;u->h=40;return u;}
+static UIElement *add_ui(Scene *s,const char *name,const char *type){if(s->uiCount>=MAX_UI)return NULL;UIElement*u=&s->ui[s->uiCount++];memset(u,0,sizeof(*u));strncpy_s(u->name,sizeof(u->name),name,_TRUNCATE);strncpy_s(u->type,sizeof(u->type),type,_TRUNCATE);u->w=160;u->h=40;u->x=24;u->y=24+(float)((s->uiCount-1)*34);return u;}
 static int find_variable(Scene*s,const char*n){for(int i=0;i<s->variableCount;i++)if(!strcmp(s->variables[i].name,n))return i;return -1;}
 static NumberVariable*get_variable(Scene*s,const char*n){int i=find_variable(s,n);if(i>=0)return &s->variables[i];if(s->variableCount>=MAX_VARIABLES)return NULL;NumberVariable*v=&s->variables[s->variableCount++];memset(v,0,sizeof(*v));strncpy_s(v->name,sizeof(v->name),n,_TRUNCATE);return v;}
 static void add_script(Scene*s,const char*type,const char*target,const char*ui,const char*text,float value){if(s->scriptCount>=MAX_SCRIPT_COMMANDS)return;ScriptCommand*c=&s->scripts[s->scriptCount++];memset(c,0,sizeof(*c));strncpy_s(c->type,sizeof(c->type),type,_TRUNCATE);strncpy_s(c->target,sizeof(c->target),target?target:"",_TRUNCATE);strncpy_s(c->ui,sizeof(c->ui),ui?ui:"",_TRUNCATE);strncpy_s(c->text,sizeof(c->text),text?text:"",_TRUNCATE);c->value=value;}
@@ -244,7 +244,7 @@ static int is_pressed(const char *key) {
     return k!=KEY_NULL && IsKeyDown(k);
 }
 static void render_entity(const Entity *e,Scene *s,Camera cam,float time) {
-    if(!e->alive)return;
+    if(!e->alive||e->controllable)return;
     if(e->texture[0]){
         int ai=find_asset(s,e->texture);
         if(ai>=0&&s->assets[ai].loaded){DrawBillboard(cam,s->assets[ai].texture,e->pos,e->scale,e->color);return;}
@@ -370,7 +370,7 @@ int main(int argc,char **argv) {
                 grounded = 1;
             }
 
-            if(s.timerStart>=0&&s.timerEnd>s.timerStart){
+        if(s.timerStart>=0&&s.timerEnd>s.timerStart){
             static float timerAccumulator=0; timerAccumulator+=dt;
             if(timerAccumulator>=1.0f){timerAccumulator-=1.0f;run_script_range(&s,s.timerStart,s.timerEnd);}
         }
