@@ -15,6 +15,8 @@
 #define SAVE 106
 #define GUIDE 107
 #define CLEAR 108
+#define IMPORT_IMAGE 112
+#define ADD_IMPORT 113
 #define EXTENSIONS 111
 #define SETTINGS 109
 #define DARK 201
@@ -376,6 +378,29 @@ static void show_signup(HWND owner){
  signupWindow=CreateWindowW(L"EPlusSignup",L"E#+ Sign Up",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,470,330,owner,NULL,GetModuleHandleW(NULL),NULL);
  CreateWindowW(L"STATIC",L"CREATE E#+ ACCOUNT",WS_CHILD|WS_VISIBLE,30,20,390,30,signupWindow,NULL,0,0);CreateWindowW(L"STATIC",L"Email",WS_CHILD|WS_VISIBLE,30,65,100,24,signupWindow,NULL,0,0);CreateWindowW(L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_BORDER|ES_AUTOHSCROLL,30,88,390,28,signupWindow,(HMENU)501,0,0);CreateWindowW(L"STATIC",L"Password",WS_CHILD|WS_VISIBLE,30,125,100,24,signupWindow,NULL,0,0);CreateWindowW(L"EDIT",L"",WS_CHILD|WS_VISIBLE|WS_BORDER|ES_PASSWORD|ES_AUTOHSCROLL,30,148,390,28,signupWindow,(HMENU)502,0,0);CreateWindowW(L"STATIC",L"",WS_CHILD|WS_VISIBLE,30,182,390,24,signupWindow,(HMENU)503,0,0);CreateWindowW(L"BUTTON",L"Create Account",WS_CHILD|WS_VISIBLE|BS_DEFPUSHBUTTON,30,215,180,36,signupWindow,(HMENU)520,0,0);CreateWindowW(L"BUTTON",L"Back to Login",WS_CHILD|WS_VISIBLE,230,215,180,36,signupWindow,(HMENU)521,0,0);SetFocus(GetDlgItem(signupWindow,501));SetForegroundWindow(signupWindow);
 }
+static void insert_editor_text(const wchar_t *text){
+    if(!editor||!text)return;
+    SetFocus(editor);
+    SendMessageW(editor,EM_REPLACESEL,TRUE,(LPARAM)text);
+}
+static void import_image(HWND h){
+    wchar_t p[MAX_PATH]=L"";
+    OPENFILENAMEW o={0};o.lStructSize=sizeof(o);o.hwndOwner=h;
+    o.lpstrFilter=L"Images (*.png;*.jpg;*.jpeg;*.bmp;*.webp)\0*.png;*.jpg;*.jpeg;*.bmp;*.webp\0All files\0*.*\0";
+    o.lpstrFile=p;o.nMaxFile=MAX_PATH;o.Flags=OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST;
+    if(!GetOpenFileNameW(&o))return;
+    const wchar_t *name=wcsrchr(p,L'\\');if(!name)name=wcsrchr(p,L'/');name=name?name+1:p;
+    wchar_t alias[MAX_PATH];wcscpy_s(alias,MAX_PATH,name);
+    wchar_t *dot=wcsrchr(alias,L'.');if(dot)*dot=0;
+    for(wchar_t *q=alias;*q;q++)if(!iswalnum(*q)&&*q!=L'_')*q=L'_';
+    wchar_t line[MAX_PATH*2];swprintf_s(line,_countof(line),L"import \"%s\" as \"%s\"\r\n",p,alias);
+    insert_editor_text(line);
+    append_console(L"> Image import added to the editor.\r\n");
+}
+static void add_import_template(HWND h){
+    (void)h;
+    insert_editor_text(L"import \"file.png\" as \"accountName\"\r\n");
+}
 static void file_dialog(int save){
     wchar_t p[MAX_PATH]=L"Program.eplus";OPENFILENAMEW o={0};o.lStructSize=sizeof(o);o.hwndOwner=mainWnd;
     o.lpstrFilter=L"E#+ files (*.eplus)\0*.eplus\0All files\0*.*\0";o.lpstrFile=p;o.nMaxFile=MAX_PATH;o.lpstrDefExt=L"eplus";
@@ -441,7 +466,7 @@ static void run_program(void){
 }
 
 static LRESULT CALLBACK text_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){if(m==WM_CLOSE){if(w==guideWindow)guideWindow=NULL;ShowWindow(w,SW_HIDE);return 0;}return DefWindowProcW(w,m,wp,lp);}
-static void guide(HWND h){const wchar_t*t=L"E#+ CODING GUIDE\r\n\r\nprint words \"Hello!\"\r\nset name to \"Liam\"\r\nask user \"Name?\" and save answer as name\r\n\r\n2D:\r\n2d canvas\r\n2d button \"play\" \"PLAY\"\r\n\r\n3D:\r\nplayer create \"Player\"\r\n\r\nIMPORT:\r\nimport \"myImage.png\" as \"accountName\"";if(guideWindow){ShowWindow(guideWindow,SW_SHOW);return;}guideWindow=CreateWindowW(L"EPlusTextWindow",L"E#+ Guide",WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,760,600,h,NULL,GetModuleHandleW(NULL),NULL);CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",t,WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_MULTILINE|ES_READONLY,10,10,720,530,guideWindow,NULL,0,0);}
+static void guide(HWND h){const wchar_t*t=L"E#+ CODING GUIDE\r\n\r\nprint words \"Hello!\"\r\nset name to \"Liam\"\r\nask user \"Name?\" and save answer as name\r\n\r\n2D:\r\n2d canvas\r\n2d button \"play\" \"PLAY\"\r\n\r\n3D:\r\nplayer create \"Player\"\r\n\r\n3D OBJECTS:\r\nobject create \"Cookie\" \"cookie\"\r\nobject position \"Cookie\" 0 1 0\r\nobject scale \"Cookie\" 2\r\nobject color \"Cookie\" 190 90 35\r\nobject clickable \"Cookie\"\r\nwhen object \"Cookie\" clicked\r\n    add number 1 to cookies\r\nend\r\n\r\nIMPORT:\r\nimport \"myImage.png\" as \"accountName\"\r\nobject texture \"Cookie\" \"accountName\"";if(guideWindow){ShowWindow(guideWindow,SW_SHOW);return;}guideWindow=CreateWindowW(L"EPlusTextWindow",L"E#+ Guide",WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,760,600,h,NULL,GetModuleHandleW(NULL),NULL);CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",t,WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_MULTILINE|ES_READONLY,10,10,720,530,guideWindow,NULL,0,0);}
 static void apply_theme(HWND h);
 static LRESULT CALLBACK settings_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){if(m==WM_COMMAND){if(LOWORD(wp)==601){darkMode=1;apply_theme(mainWnd);}if(LOWORD(wp)==602){darkMode=0;apply_theme(mainWnd);}if(LOWORD(wp)==603){fontSize=16;make_font();}if(LOWORD(wp)==604){fontSize=18;make_font();}if(LOWORD(wp)==605){fontSize=21;make_font();}}if(m==WM_CLOSE){settingsWindow=NULL;ShowWindow(w,SW_HIDE);return 0;}return DefWindowProcW(w,m,wp,lp);}
 static void show_settings(HWND h){if(settingsWindow){ShowWindow(settingsWindow,SW_SHOW);return;}WNDCLASSW c={0};c.lpfnWndProc=settings_proc;c.hInstance=GetModuleHandleW(NULL);c.lpszClassName=L"EPlusSettings";RegisterClassW(&c);settingsWindow=CreateWindowW(L"EPlusSettings",L"E#+ Settings",WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,430,300,h,NULL,GetModuleHandleW(NULL),NULL);CreateWindowW(L"BUTTON",L"Dark Mode",WS_CHILD|WS_VISIBLE,30,35,160,40,settingsWindow,(HMENU)601,0,0);CreateWindowW(L"BUTTON",L"Light Mode",WS_CHILD|WS_VISIBLE,210,35,160,40,settingsWindow,(HMENU)602,0,0);CreateWindowW(L"BUTTON",L"Small Font",WS_CHILD|WS_VISIBLE,30,95,160,40,settingsWindow,(HMENU)603,0,0);CreateWindowW(L"BUTTON",L"Normal Font",WS_CHILD|WS_VISIBLE,210,95,160,40,settingsWindow,(HMENU)604,0,0);CreateWindowW(L"BUTTON",L"Large Font",WS_CHILD|WS_VISIBLE,30,155,160,40,settingsWindow,(HMENU)605,0,0);}
@@ -450,7 +475,7 @@ static LRESULT CALLBACK ext_window_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){if(m=
 static void show_native_extension(HWND h,int mode){if(guestMode){MessageBoxW(h,L"Extensions are disabled in Guest mode.",L"E#+ Guest Mode",MB_OK);return;}if(extWindow){ShowWindow(extWindow,SW_SHOW);return;}extMode=mode;extWindow=CreateWindowW(L"EPlusExtensionWindow",mode==1?L"E#+ 2D Editor":L"E#+ 3D Editor",WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,980,680,h,NULL,GetModuleHandleW(NULL),NULL);CreateWindowW(L"BUTTON",L"New",WS_CHILD|WS_VISIBLE,20,20,100,36,extWindow,(HMENU)304,0,0);CreateWindowW(L"BUTTON",L"Clear",WS_CHILD|WS_VISIBLE,130,20,100,36,extWindow,(HMENU)305,0,0);CreateWindowW(L"BUTTON",L"Back to Code",WS_CHILD|WS_VISIBLE,240,20,130,36,extWindow,(HMENU)303,0,0);extCanvas=CreateWindowExW(WS_EX_CLIENTEDGE,L"EPlusExtensionCanvas",L"",WS_CHILD|WS_VISIBLE,20,70,920,530,extWindow,(HMENU)306,GetModuleHandleW(NULL),0);}
 static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
     switch(m){
-    case WM_CREATE:{colors();brushes();make_font();editor=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"# Welcome to E#+\r\nprint words \"Hello from E#+!\"\r\n",WS_CHILD|WS_VSCROLL|WS_HSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,10,60,500,500,h,(HMENU)ED,0,0);console=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"E#+ Console\r\n\r\n> Sign in or continue as Guest.\r\n",WS_CHILD|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,520,60,500,500,h,(HMENU)CONSOLE_OUT,0,0);oldConsoleProc=(WNDPROC)SetWindowLongPtrW(console,GWLP_WNDPROC,(LONG_PTR)console_proc);const wchar_t*names[]={L"Run",L"New",L"Open",L"Save",L"Guide",L"Settings",L"Updates",L"Clear"};int ids[]={RUN,NEW,OPEN,SAVE,GUIDE,SETTINGS,CHECK_UPDATES,CLEAR};for(int i=0;i<8;i++){HWND b=CreateWindowW(L"BUTTON",names[i],WS_CHILD|WS_VISIBLE,10+i*105,12,98,34,h,(HMENU)(INT_PTR)ids[i],0,0);SendMessageW(b,WM_SETFONT,(WPARAM)font,TRUE);}WNDCLASSW a={0};a.lpfnWndProc=auth_proc;a.hInstance=GetModuleHandleW(NULL);a.lpszClassName=L"EPlusAuth";RegisterClassW(&a);WNDCLASSW sg={0};sg.lpfnWndProc=signup_proc;sg.hInstance=GetModuleHandleW(NULL);sg.lpszClassName=L"EPlusSignup";RegisterClassW(&sg);WNDCLASSW ew={0};ew.lpfnWndProc=ext_window_proc;ew.hInstance=GetModuleHandleW(NULL);ew.lpszClassName=L"EPlusExtensionWindow";RegisterClassW(&ew);WNDCLASSW tw={0};tw.lpfnWndProc=text_proc;tw.hInstance=GetModuleHandleW(NULL);tw.lpszClassName=L"EPlusTextWindow";RegisterClassW(&tw);return 0;}
+    case WM_CREATE:{colors();brushes();make_font();editor=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"# Welcome to E#+\r\nprint words \"Hello from E#+!\"\r\n",WS_CHILD|WS_VSCROLL|WS_HSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,10,60,500,500,h,(HMENU)ED,0,0);console=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"E#+ Console\r\n\r\n> Sign in or continue as Guest.\r\n",WS_CHILD|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,520,60,500,500,h,(HMENU)CONSOLE_OUT,0,0);oldConsoleProc=(WNDPROC)SetWindowLongPtrW(console,GWLP_WNDPROC,(LONG_PTR)console_proc);const wchar_t*names[]={L"Run",L"New",L"Open",L"Save",L"Guide",L"Settings",L"Updates",L"Clear",L"Import Image",L"Add Import"};int ids[]={RUN,NEW,OPEN,SAVE,GUIDE,SETTINGS,CHECK_UPDATES,CLEAR,IMPORT_IMAGE,ADD_IMPORT};for(int i=0;i<10;i++){HWND b=CreateWindowW(L"BUTTON",names[i],WS_CHILD|WS_VISIBLE,10+i*105,12,98,34,h,(HMENU)(INT_PTR)ids[i],0,0);SendMessageW(b,WM_SETFONT,(WPARAM)font,TRUE);}WNDCLASSW a={0};a.lpfnWndProc=auth_proc;a.hInstance=GetModuleHandleW(NULL);a.lpszClassName=L"EPlusAuth";RegisterClassW(&a);WNDCLASSW sg={0};sg.lpfnWndProc=signup_proc;sg.hInstance=GetModuleHandleW(NULL);sg.lpszClassName=L"EPlusSignup";RegisterClassW(&sg);WNDCLASSW ew={0};ew.lpfnWndProc=ext_window_proc;ew.hInstance=GetModuleHandleW(NULL);ew.lpszClassName=L"EPlusExtensionWindow";RegisterClassW(&ew);WNDCLASSW tw={0};tw.lpfnWndProc=text_proc;tw.hInstance=GetModuleHandleW(NULL);tw.lpszClassName=L"EPlusTextWindow";RegisterClassW(&tw);return 0;}
     case WM_CTLCOLORSTATIC:case WM_CTLCOLOREDIT:{HDC dc=(HDC)w;SetTextColor(dc,textColor);SetBkColor(dc,inputColor);return (LRESULT)inputBrush;}
     case WM_ERASEBKGND:{HDC dc=(HDC)w;RECT r;GetClientRect(h,&r);FillRect(dc,&r,bgBrush);return 1;}
     case WM_SIZE:{int W=LOWORD(l),H=HIWORD(l);int left=(W-30)/2;MoveWindow(editor,10,60,left,H-70,TRUE);MoveWindow(console,left+20,60,W-left-30,H-70,TRUE);return 0;}
@@ -474,7 +499,7 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
         return 0;
     }
     case WM_APP_UPDATE_RESULT:{ UpdateInfo *u=(UpdateInfo*)l; if(u){ if(u->available && u->downloadUrl[0]){ wchar_t msg[512];swprintf_s(msg,512,L"E#+ Studio %s is available.\r\n\r\nUpdate now?",u->version);if(MessageBoxW(h,msg,L"E#+ Update Available",MB_YESNO|MB_ICONINFORMATION)==IDYES)install_update(h,u->downloadUrl); } free(u);} return 0;}
-    case WM_COMMAND:switch(LOWORD(w)){case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:save_cloud(h);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:if(!guestMode)check_updates(h,0);return 0;case 301:show_native_extension(h,1);return 0;case 302:show_native_extension(h,2);return 0;case 303:if(extWindow)ShowWindow(extWindow,SW_HIDE);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;}break;
+    case WM_COMMAND:switch(LOWORD(w)){case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:save_cloud(h);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:if(!guestMode)check_updates(h,0);return 0;case 301:show_native_extension(h,1);return 0;case 302:show_native_extension(h,2);return 0;case 303:if(extWindow)ShowWindow(extWindow,SW_HIDE);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;case IMPORT_IMAGE:import_image(h);return 0;case ADD_IMPORT:add_import_template(h);return 0;}break;
     case WM_DESTROY:
         if(font)DeleteObject(font);if(bgBrush)DeleteObject(bgBrush);if(panelBrush)DeleteObject(panelBrush);if(inputBrush)DeleteObject(inputBrush);PostQuitMessage(0);return 0;
     }
