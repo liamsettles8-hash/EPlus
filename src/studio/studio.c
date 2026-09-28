@@ -40,6 +40,9 @@ static int fontSize = 18;
 static COLORREF bgColor, panelColor, textColor, inputColor;
 static HBRUSH bgBrush = NULL, panelBrush = NULL, inputBrush = NULL;
 static HANDLE childStdinWrite = NULL;
+static HWND extPanel=NULL, extCanvas=NULL;
+static int extMode=0, extDrawing=0, extBrush=8;
+static COLORREF extColor=RGB(30,30,30);
 static WNDPROC oldConsoleProc = NULL;
 static volatile LONG runActive = 0;
 
@@ -217,8 +220,31 @@ static void install_extension(HWND h,int which){
     (void)name;
 }
 static void extensions_window(HWND h){
-    int r=MessageBoxW(h,L"E#+ EXTENSIONS\\r\\n\\r\\nYES  Install 3D Editor\\r\\nNO   Install 2D Editor\\r\\nCANCEL  Close",L"E#+ Extensions",MB_YESNOCANCEL|MB_ICONQUESTION);
-    if(r==IDYES)install_extension(h,0);else if(r==IDNO)install_extension(h,1);
+    HMENU menu=CreatePopupMenu();
+    AppendMenuW(menu,MF_STRING,301,L"2D Editor");
+    AppendMenuW(menu,MF_STRING,302,L"3D Editor");
+    AppendMenuW(menu,MF_SEPARATOR,0,NULL);
+    AppendMenuW(menu,MF_STRING,303,L"Back to Code");
+    POINT p;GetCursorPos(&p);
+    int cmd=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_LEFTALIGN|TPM_TOPALIGN,p.x,p.y,0,h,NULL);
+    DestroyMenu(menu);
+    if(cmd==301||cmd==302){
+        extMode=cmd-300;
+        ShowWindow(editor,SW_HIDE);ShowWindow(console,SW_HIDE);
+        if(!extPanel){
+            extPanel=CreateWindowExW(WS_EX_CLIENTEDGE,L"STATIC",L"",WS_CHILD|WS_VISIBLE,10,60,1000,500,h,NULL,0,0);
+            CreateWindowW(L"BUTTON",L"Back to Code",WS_CHILD|WS_VISIBLE,10,10,120,34,extPanel,(HMENU)303,0,0);
+            CreateWindowW(L"BUTTON",L"New",WS_CHILD|WS_VISIBLE,140,10,90,34,extPanel,(HMENU)304,0,0);
+            CreateWindowW(L"BUTTON",L"Clear",WS_CHILD|WS_VISIBLE,240,10,90,34,extPanel,(HMENU)305,0,0);
+            extCanvas=CreateWindowExW(WS_EX_CLIENTEDGE,L"STATIC",L"",WS_CHILD|WS_VISIBLE,10,55,900,400,extPanel,(HMENU)306,0,0);
+        }
+        SetWindowTextW(extPanel,extMode==1?L"E#+ 2D Editor":L"E#+ 3D Editor");
+        ShowWindow(extPanel,SW_SHOW);
+        InvalidateRect(extCanvas,NULL,TRUE);
+    }else if(cmd==303){
+        extMode=0;if(extPanel)ShowWindow(extPanel,SW_HIDE);
+        ShowWindow(editor,SW_SHOW);ShowWindow(console,SW_SHOW);
+    }
 }
 
 static void file_dialog(int save){
