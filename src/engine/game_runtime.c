@@ -72,7 +72,7 @@ static int load_scene(const char *path,Scene *s) {
     memset(s,0,sizeof(*s)); s->width=1280;s->height=720;
     strcpy_s(s->title,sizeof(s->title),"E#+ Game");
     strcpy_s(s->shader,sizeof(s->shader),"none"); s->background=(Color){18,22,30,255};
-    while(fgets(line,sizeof(line),f)) {
+    int lastScriptButton=-1;\n    while(fgets(line,sizeof(line),f)) {
         char a[256]={0},b[256]={0},c[256]={0}; float x,y,z;
         if(sscanf_s(line,"WINDOW_WIDTH %d",&s->width)==1) continue;
         if(sscanf_s(line,"WINDOW_HEIGHT %d",&s->height)==1) continue;
