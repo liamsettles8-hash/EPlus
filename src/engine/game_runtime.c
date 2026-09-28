@@ -259,7 +259,7 @@ static void render_entity(const Entity *e,Scene *s,Camera cam,float time) {
         DrawCylinder(e->pos,q,q,q*0.38f,48,e->color);
         DrawCylinderWires(e->pos,q*1.01f,q*1.01f,q*0.39f,48,(Color){80,35,15,255});
     } else if(!strcmp(e->model,"torus")) {
-        DrawTorus(e->pos,q*0.65f,q*0.22f,32,16,e->color);
+        DrawCylinder(e->pos,q*0.72f,q*0.72f,q*0.22f,40,e->color);
     } else {
         DrawCube(e->pos,q,q,q,e->color);
     }
