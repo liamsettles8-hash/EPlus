@@ -167,6 +167,7 @@ static int load_scene(const char *path,Scene *s) {
         if(sscanf_s(line,"HEALTH %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0){s->entities[i].health=x;s->entities[i].maxHealth=x;}continue;}
         if(sscanf_s(line,"SPEED %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].speed=x;continue;}
         if(sscanf_s(line,"DAMAGE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].damage=x;continue;}
+        if(sscanf_s(line,"FIRE_RATE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].fireRate=x;continue;}
         if(sscanf_s(line,"MODEL %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].model,sizeof(s->entities[i].model),b,_TRUNCATE);continue;}
         if(sscanf_s(line,"SCALE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].scale=x;continue;}
         if(sscanf_s(line,"FOLLOW %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0){strncpy_s(s->entities[i].followTarget,sizeof(s->entities[i].followTarget),b,_TRUNCATE);s->entities[i].followDistance=3.0f;}continue;}
@@ -269,13 +270,50 @@ static void render_entity(const Entity *e,Scene *s,Camera cam,float time) {
         DrawCube(e->pos,q,q,q,e->color);
     }
 }
+static void render_builtin_hud(Scene *s,int player,int dead,int won){
+    if(player<0)return;
+    Entity *p=&s->entities[player];
+    int aliveEnemies=0;
+    for(int i=0;i<s->entityCount;i++){
+        if(i!=player && s->entities[i].alive && s->entities[i].health>0) aliveEnemies++;
+    }
+
+    /* Crosshair */
+    int cx=s->width/2, cy=s->height/2;
+    DrawLine(cx-9,cy,cx+9,cy,RAYWHITE);
+    DrawLine(cx,cy-9,cx,cy+9,RAYWHITE);
+
+    /* Health panel */
+    int bx=24, by=24, bw=300, bh=28;
+    float hp=p->maxHealth>0?p->health/p->maxHealth:0;
+    if(hp<0)hp=0;if(hp>1)hp=1;
+    DrawRectangle(bx-4,by-4,bw+8,bh+8,(Color){10,10,14,220});
+    DrawRectangle(bx,by,bw,bh,(Color){45,45,50,255});
+    DrawRectangle(bx,by,(int)(bw*hp),bh,(Color){55,205,85,255});
+    DrawRectangleLines(bx,by,bw,bh,RAYWHITE);
+    char hpText[64]; _snprintf_s(hpText,sizeof(hpText),_TRUNCATE,"HEALTH  %.0f / %.0f",p->health,p->maxHealth);
+    DrawText(hpText,bx+10,by+5,18,RAYWHITE);
+
+    char enemyText[64]; _snprintf_s(enemyText,sizeof(enemyText),_TRUNCATE,"ENEMIES LEFT: %d",aliveEnemies);
+    DrawText(enemyText,24,68,20,RAYWHITE);
+
+    if(dead || won){
+        DrawRectangle(0,0,s->width,s->height,(Color){0,0,0,190});
+        const char *title=dead?"YOU DIED":"YOU WIN";
+        int fs=64, tw=MeasureText(title,fs);
+        DrawText(title,(s->width-tw)/2,s->height/2-80,fs,dead?(Color){230,70,70,255}:(Color){90,230,120,255});
+        const char *sub=dead?"Your health reached zero. Press ESC to close.":"All enemies defeated!";
+        int sw=MeasureText(sub,24);
+        DrawText(sub,(s->width-sw)/2,s->height/2+5,24,RAYWHITE);
+    }
+}
 static void render_2d(Scene *s) {
     /*
        The 2D layer is a real screen-space canvas. Draw its background first,
        then every UI element on top. This also makes a canvas visible even
        when the source only contains "2d canvas" and no UI elements yet.
     */
-    if(s->canvas)DrawRectangle(0,0,s->width,s->height,s->background);
+    if(s->canvas)DrawRectangle(0,0,s->width,s->height,(Color){s->background.r,s->background.g,s->background.b,120});
 
     Vector2 mp=GetMousePosition();
     for(int i=0;i<s->uiCount;i++) {
@@ -339,6 +377,7 @@ int main(int argc,char **argv) {
     if(player>=0)cam.position=s.entities[player].pos;
     cam.up=(Vector3){0,1,0};cam.fovy=70;cam.projection=CAMERA_PERSPECTIVE;
     float yaw=-90,pitch=0,elapsed=0;
+    int gameDead=0, gameWon=0;
     float verticalVelocity=0.0f;
     int grounded=0;
     while(!WindowShouldClose()){
@@ -365,7 +404,24 @@ int main(int argc,char **argv) {
             }
         }
 
+        /* Enemy AI: chase the player and damage them at close range. */
         if(player>=0 && s.entities[player].alive){
+            for(int i=0;i<s.entityCount;i++){
+                Entity *e=&s.entities[i];
+                if(i==player||!e->alive||e->controllable||e->speed<=0)continue;
+                Vector3 d=Vector3Subtract(s.entities[player].pos,e->pos); float dist=Vector3Length(d);
+                if(dist>1.35f){
+                    Vector3 dir=Vector3Scale(d,1.0f/(dist>0.001f?dist:1.0f));
+                    float step=e->speed*dt; if(step>dist-1.15f)step=fmaxf(0,dist-1.15f);
+                    e->pos=Vector3Add(e->pos,Vector3Scale(dir,step));
+                } else if(e->damage>0){
+                    e->cooldown-=dt;
+                    if(e->cooldown<=0){s.entities[player].health-=e->damage;e->cooldown=0.75f;}
+                }
+            }
+        }
+
+        if(player>=0 && s.entities[player].alive && !gameDead && !gameWon){
             Entity *p=&s.entities[player];
             Vector2 md=GetMouseDelta();yaw+=md.x*.10f;pitch-=md.y*.10f;
             if(pitch>89)pitch=89;if(pitch<-89)pitch=-89;
@@ -424,7 +480,11 @@ int main(int argc,char **argv) {
                     Vector3 to=Vector3Subtract(s.entities[i].pos,cam.position);float d=Vector3Length(to);if(d>100)continue;
                     if(Vector3DotProduct(Vector3Normalize(to),fwd)>.985f&&d<best){best=d;hit=i;}
                 }
-                if(hit>=0){s.entities[hit].health-=s.entities[weapon].damage;if(s.entities[hit].health<=0)s.entities[hit].alive=0;}
+                if(hit>=0 && s.entities[weapon].damage>0 && s.entities[weapon].cooldown<=0){
+                    s.entities[hit].health-=s.entities[weapon].damage;
+                    if(s.entities[hit].health<=0)s.entities[hit].alive=0;
+                    s.entities[weapon].cooldown=s.entities[weapon].fireRate>0?s.entities[weapon].fireRate:0.2f;
+                }
             }
         }
         if(s.timerStart>=0&&s.timerEnd>s.timerStart){
@@ -453,6 +513,17 @@ int main(int argc,char **argv) {
                 if(len>1.3f)s.entities[who].pos=Vector3Add(s.entities[who].pos,Vector3Scale(Vector3Normalize(d),s.entities[who].speed*dt));
             }
         }
+        /* Weapon cooldown and win/lose state. */
+        for(int i=0;i<s.entityCount;i++)if(s.entities[i].cooldown>0)s.entities[i].cooldown-=dt;
+        int enemiesLeft=0;
+        for(int i=0;i<s.entityCount;i++)if(i!=player&&s.entities[i].alive&&s.entities[i].health>0)enemiesLeft++;
+        if(player>=0 && s.entities[player].health<=0){s.entities[player].health=0;gameDead=1;}
+        if(player>=0 && enemiesLeft==0 && s.entityCount>0)gameWon=1;
+        if(gameDead||gameWon){
+            EnableCursor();
+            if(IsKeyPressed(KEY_ESCAPE))break;
+        } else if(!s.canvas && s.uiCount==0) DisableCursor();
+
         float sunDir[3]={-0.45f,-0.85f,-0.25f};
         float camPos[3]={cam.position.x,cam.position.y,cam.position.z};
         if(realistic.id>0){
@@ -472,6 +543,7 @@ int main(int argc,char **argv) {
         }
         /* Always draw the 2D layer last so HUD/UI stays above the 3D world. */
         if(s.canvas || s.uiCount>0) render_2d(&s);
+        render_builtin_hud(&s,player,gameDead,gameWon);
         EndDrawing();
     }
     if(realistic.id>0)UnloadShader(realistic);
