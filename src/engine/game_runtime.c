@@ -16,10 +16,11 @@
 typedef struct { char name[128], type[16], text[256]; float x,y,w,h; } UIElement;
 
 typedef struct {
-    char name[128], model[128];
-    Vector3 pos;
+    char name[128], model[128], texture[128];
+    Vector3 pos, rotation;
     float scale, health, maxHealth, speed, damage, cooldown;
-    int alive, controllable, solid;
+    Color color;
+    int alive, controllable, solid, clickable;
 } Entity;
 
 typedef struct {
@@ -28,7 +29,8 @@ typedef struct {
 } Rule;
 
 typedef struct { char type[32], target[128], ui[128], text[256]; float value; } ScriptCommand;
-typedef struct { char name[128]; float value; } NumberVariable;\ntypedef struct { char name[128], path[512]; Texture2D texture; int loaded; } ImageAsset;
+typedef struct { char name[128]; float value; } NumberVariable;
+typedef struct { char name[128], path[512]; Texture2D texture; int loaded; } ImageAsset;
 typedef struct {
     int width, height;
     float winTime;
@@ -162,7 +164,7 @@ static int load_scene(const char *path,Scene *s) {
         if(sscanf_s(line,"MODEL %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].model,sizeof(s->entities[i].model),b,_TRUNCATE);continue;}
         if(sscanf_s(line,"SCALE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].scale=x;continue;}
         if(sscanf_s(line,"ROT %127s %f %f %f",a,(unsigned)_countof(a),&x,&y,&z)==4){int i=find_entity(s,a);if(i>=0)s->entities[i].rotation=(Vector3){x,y,z};continue;}
-        if(sscanf_s(line,"COLOR %127s %d %d %d",a,(unsigned)_countof(a),(int*)&x,(int*)&y,(int*)&z)==4){int i=find_entity(s,a);if(i>=0)s->entities[i].color=(Color){(unsigned char)x,(unsigned char)y,(unsigned char)z,255};continue;}
+        if(!strncmp(line,"COLOR ",6)){int cr=255,cg=255,cb=255;if(sscanf_s(line+6,"%127s %d %d %d",a,(unsigned)_countof(a),&cr,&cg,&cb)==4){int i=find_entity(s,a);if(i>=0)s->entities[i].color=(Color){(unsigned char)cr,(unsigned char)cg,(unsigned char)cb,255};}continue;}
         if(sscanf_s(line,"TEXTURE %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].texture,sizeof(s->entities[i].texture),b,_TRUNCATE);continue;}
         if(sscanf_s(line,"CLICKABLE %127s",a,(unsigned)_countof(a))==1){int i=find_entity(s,a);if(i>=0)s->entities[i].clickable=1;continue;}
 
@@ -176,7 +178,6 @@ static int load_scene(const char *path,Scene *s) {
             if(lastScriptObject>=0)s->scriptObjectEnd[lastScriptObject]=s->scriptCount;
             char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ei=find_entity(s,n);if(ei>=0){s->scriptObjectStart[ei]=s->scriptCount;lastScriptObject=ei;lastScriptButton=-1;}}continue;}
         if(!strncmp(line,"TIMER_START",11)){s->timerStart=s->scriptCount;lastScriptButton=-1;lastScriptObject=-1;continue;}
-char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ui=find_ui(s,n);if(ui>=0){if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;s->scriptStart[ui]=s->scriptCount;lastScriptButton=ui;}}continue;}
         if(!strncmp(line,"SCRIPT ADD ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2)add_script(s,"add",n,NULL,NULL,v);continue;}
         if(!strncmp(line,"SCRIPT SET ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2){if(lastScriptButton<0){NumberVariable*v0=get_variable(s,n);if(v0)v0->value=v;}else add_script(s,"set",n,NULL,NULL,v);}continue;}
         if(!strncmp(line,"SCRIPT ADDVAR ",14)){char a[128]={0},b[128]={0};if(sscanf_s(line+14,"%127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2)add_script(s,"addvar",a,b,NULL,0);continue;}
@@ -216,6 +217,8 @@ char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ui=
         }
     }
     if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;
+    if(lastScriptObject>=0)s->scriptObjectEnd[lastScriptObject]=s->scriptCount;
+    if(s->timerStart>=0)s->timerEnd=s->scriptCount;
     fclose(f);
     return 1;
 }
