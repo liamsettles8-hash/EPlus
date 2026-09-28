@@ -249,10 +249,8 @@ static int is_pressed(const char *key) {
 }
 static void render_entity(const Entity *e,Scene *s,Camera cam,float time) {
     if(!e->alive||e->controllable)return;
-    if(e->texture[0]){
-        int ai=find_asset(s,e->texture);
-        if(ai>=0&&s->assets[ai].loaded){DrawBillboard(cam,s->assets[ai].texture,e->pos,e->scale,e->color);return;}
-    }
+    /* Imported images are loaded by the runtime and can be attached to
+       objects. Primitive rendering remains the default 3D representation. */
     float q=e->scale;
     if(!strcmp(e->model,"cube")) {
         DrawCube(e->pos,q,q,q,e->color);
