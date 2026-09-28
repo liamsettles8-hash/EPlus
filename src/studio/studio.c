@@ -32,7 +32,7 @@
 #define EPLUS_REPO_NAME L"EPlus"
 #define EPLUS_RELEASE_ASSET L"EPlusStudio-Setup.exe"
 #define EPLUS_RELEASE_ASSET_A "EPlusStudio-Setup.exe"
-#define FIREBASE_API_KEY "YOUR_FIREBASE_WEB_API_KEY"
+#define FIREBASE_API_KEY "AIzaSyBtVou8AIqNyJQaZJkIIkvTIsk6z5-QwX4"
 #define FIREBASE_PROJECT_ID "eplus-9896a"
 
 static HWND mainWnd, editor, console;
