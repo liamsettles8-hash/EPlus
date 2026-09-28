@@ -492,14 +492,31 @@ int main(int argc,char **argv) {
             if(timerAccumulator>=1.0f){timerAccumulator-=1.0f;run_script_range(&s,s.timerStart,s.timerEnd);}
         }
         if(player>=0 && !gameDead && !gameWon && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
-            Vector2 clickPos=IsCursorOnScreen()?GetMousePosition():(Vector2){s.width*0.5f,s.height*0.5f};
+            /* First-person shooting always fires through the center crosshair.
+               Using the OS cursor position here breaks when the cursor is locked. */
+            Vector2 clickPos={(float)s.width*0.5f,(float)s.height*0.5f};
             Ray ray=GetScreenToWorldRay(clickPos,cam);
             float best=1e30f;int hit=-1;
-            for(int i=0;i<s.entityCount;i++)if(s.entities[i].alive&&s.entities[i].clickable){
+            for(int i=0;i<s.entityCount;i++)if(i!=player&&s.entities[i].alive){
+                if(!strcmp(s.entities[i].name,"")) continue;
                 RayCollision rc={0};
                 if(!strcmp(s.entities[i].model,"cube")){float q=s.entities[i].scale;BoundingBox box={{s.entities[i].pos.x-q/2,s.entities[i].pos.y-q/2,s.entities[i].pos.z-q/2},{s.entities[i].pos.x+q/2,s.entities[i].pos.y+q/2,s.entities[i].pos.z+q/2}};rc=GetRayCollisionBox(ray,box);}
                 else rc=GetRayCollisionSphere(ray,s.entities[i].pos,s.entities[i].scale);
                 if(rc.hit&&rc.distance<best){best=rc.distance;hit=i;}
+            }
+            /* Weapon damage uses the same center-screen ray. */
+            int weapon=find_entity(&s,"Blaster");
+            if(weapon<0){
+                for(int wi=0;wi<s.entityCount;wi++){
+                    if(!strcmp(s.entities[wi].model,"cube") && s.entities[wi].damage>0 && !s.entities[wi].controllable){
+                        weapon=wi; break;
+                    }
+                }
+            }
+            if(hit>=0 && weapon>=0 && s.entities[weapon].damage>0 && s.entities[weapon].cooldown<=0){
+                s.entities[hit].health-=s.entities[weapon].damage;
+                if(s.entities[hit].health<=0)s.entities[hit].alive=0;
+                s.entities[weapon].cooldown=s.entities[weapon].fireRate>0?s.entities[weapon].fireRate:0.2f;
             }
             if(hit>=0)run_object_script(&s,hit);
         }
