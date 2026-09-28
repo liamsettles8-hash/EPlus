@@ -370,22 +370,6 @@ int main(int argc,char **argv) {
                 grounded = 1;
             }
 
-        if(s.timerStart>=0&&s.timerEnd>s.timerStart){
-            static float timerAccumulator=0; timerAccumulator+=dt;
-            if(timerAccumulator>=1.0f){timerAccumulator-=1.0f;run_script_range(&s,s.timerStart,s.timerEnd);}
-        }
-        if(player>=0 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
-            Vector2 clickPos=IsCursorOnScreen()?GetMousePosition():(Vector2){s.width*0.5f,s.height*0.5f};
-            Ray ray=GetScreenToWorldRay(clickPos,cam);
-            float best=1e30f;int hit=-1;
-            for(int i=0;i<s.entityCount;i++)if(s.entities[i].alive&&s.entities[i].clickable){
-                RayCollision rc={0};
-                if(!strcmp(s.entities[i].model,"cube")){float q=s.entities[i].scale;BoundingBox box={{s.entities[i].pos.x-q/2,s.entities[i].pos.y-q/2,s.entities[i].pos.z-q/2},{s.entities[i].pos.x+q/2,s.entities[i].pos.y+q/2,s.entities[i].pos.z+q/2}};rc=GetRayCollisionBox(ray,box);}
-                else rc=GetRayCollisionSphere(ray,s.entities[i].pos,s.entities[i].scale);
-                if(rc.hit&&rc.distance<best){best=rc.distance;hit=i;}
-            }
-            if(hit>=0)run_object_script(&s,hit);
-        }
         for(int r=0;r<s.ruleCount;r++){
                 Rule *rule=&s.rules[r];
                 if(strcmp(rule->event,"KEY"))continue;
@@ -415,6 +399,22 @@ int main(int argc,char **argv) {
                 }
                 if(hit>=0){s.entities[hit].health-=s.entities[weapon].damage;if(s.entities[hit].health<=0)s.entities[hit].alive=0;}
             }
+        }
+        if(s.timerStart>=0&&s.timerEnd>s.timerStart){
+            static float timerAccumulator=0; timerAccumulator+=dt;
+            if(timerAccumulator>=1.0f){timerAccumulator-=1.0f;run_script_range(&s,s.timerStart,s.timerEnd);}
+        }
+        if(player>=0 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+            Vector2 clickPos=IsCursorOnScreen()?GetMousePosition():(Vector2){s.width*0.5f,s.height*0.5f};
+            Ray ray=GetScreenToWorldRay(clickPos,cam);
+            float best=1e30f;int hit=-1;
+            for(int i=0;i<s.entityCount;i++)if(s.entities[i].alive&&s.entities[i].clickable){
+                RayCollision rc={0};
+                if(!strcmp(s.entities[i].model,"cube")){float q=s.entities[i].scale;BoundingBox box={{s.entities[i].pos.x-q/2,s.entities[i].pos.y-q/2,s.entities[i].pos.z-q/2},{s.entities[i].pos.x+q/2,s.entities[i].pos.y+q/2,s.entities[i].pos.z+q/2}};rc=GetRayCollisionBox(ray,box);}
+                else rc=GetRayCollisionSphere(ray,s.entities[i].pos,s.entities[i].scale);
+                if(rc.hit&&rc.distance<best){best=rc.distance;hit=i;}
+            }
+            if(hit>=0)run_object_script(&s,hit);
         }
         for(int r=0;r<s.ruleCount;r++){
             Rule *rule=&s.rules[r];
