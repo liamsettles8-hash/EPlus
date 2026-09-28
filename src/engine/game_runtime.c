@@ -114,11 +114,17 @@ static int load_scene(const char *path,Scene *s) {
         if(!strncmp(line,"SCRIPT_BUTTON ",14)){char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ui=find_ui(s,n);if(ui>=0){if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;s->scriptStart[ui]=s->scriptCount;lastScriptButton=ui;}}continue;}
         if(!strncmp(line,"SCRIPT ADD ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2)add_script(s,"add",n,NULL,NULL,v);continue;}
         if(!strncmp(line,"SCRIPT SET ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2)add_script(s,"set",n,NULL,NULL,v);continue;}
-        if(!strncmp(line,"SCRIPT TEXT ",12)){char ui[128]={0},t[256]={0};if(sscanf_s(line+12,"%127s %255[^\r\n]",ui,(unsigned)_countof(u),t,(unsigned)_countof(t))==2)^ÝÚ[J
-OIÈ	Ê[Y[[Ý™J
-ÜËÝ›[Š
-JNÚYŠÌOOIÈ‰É‰emstrlen(t)-1]=='"')}Ñlstrlen(t)-1]=0;memmove(t,t+1,strlen(t));add_script(s,"text",NULL,ui,t,0);}continue;}
-        if(!strncmp(line,"RULE ",5)) {
+        if(!strncmp(line,"SCRIPT TEXT ",12)){
+            char ui[128]={0}, t[256]={0};
+            int n=sscanf_s(line+12,"%127s %255[^\r\n]",ui,(unsigned)_countof(ui),t,(unsigned)_countof(t));
+            if(n==2){
+                while(*t==' ') memmove(t,t+1,strlen(t));
+                size_t len=strlen(t);
+                if(len>=2 && t[0]=='"' && t[len-1]=='"'){ t[len-1]=0; memmove(t,t+1,strlen(t)); }
+                add_script(s,"text",NULL,ui,t,0);
+            }
+            continue;
+        }
             char event[64],who[128],action[128],target[128]; float value=0;
             int n=sscanf_s(line,"RULE %63s %127s %127s %127s %f",event,(unsigned)_countof(event),who,(unsigned)_countof(who),action,(unsigned)_countof(action),target,(unsigned)_countof(target),&value);
             if(n>=4)add_rule(s,event,who,action,target,n==5?value:0);
