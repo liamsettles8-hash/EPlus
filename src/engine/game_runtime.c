@@ -349,8 +349,8 @@ int main(int argc,char **argv) {
     SetWindowFocused();
     RestoreWindow();
     SetTargetFPS(120);
-    /* 2D elements are an overlay in every scene. A canvas scene is still 2D-only. */
-    if(s.canvas||s.uiCount>0) EnableCursor(); else DisableCursor();
+    /* 2D is an overlay on top of 3D. A canvas never disables the 3D world. */
+    DisableCursor();
     /* Resolve bundled shaders relative to the runtime executable without
        depending on windows.h (which conflicts with raylib's Win32 names). */
     char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
@@ -491,7 +491,7 @@ int main(int argc,char **argv) {
             static float timerAccumulator=0; timerAccumulator+=dt;
             if(timerAccumulator>=1.0f){timerAccumulator-=1.0f;run_script_range(&s,s.timerStart,s.timerEnd);}
         }
-        if(player>=0 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+        if(player>=0 && !gameDead && !gameWon && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
             Vector2 clickPos=IsCursorOnScreen()?GetMousePosition():(Vector2){s.width*0.5f,s.height*0.5f};
             Ray ray=GetScreenToWorldRay(clickPos,cam);
             float best=1e30f;int hit=-1;
@@ -522,7 +522,7 @@ int main(int argc,char **argv) {
         if(gameDead||gameWon){
             EnableCursor();
             if(IsKeyPressed(KEY_ESCAPE))break;
-        } else if(!s.canvas && s.uiCount==0) DisableCursor();
+        } else { DisableCursor();
 
         float sunDir[3]={-0.45f,-0.85f,-0.25f};
         float camPos[3]={cam.position.x,cam.position.y,cam.position.z};
@@ -533,7 +533,7 @@ int main(int argc,char **argv) {
         }
         BeginDrawing();
         ClearBackground(s.background);
-        if(!s.canvas){
+        {
             BeginMode3D(cam);
             DrawPlane((Vector3){0,-0.51f,0},(Vector2){100,100},(Color){38,43,52,255}); DrawGrid(40,1.0f);
             if(realistic.id>0)BeginShaderMode(realistic);
