@@ -1,0 +1,26 @@
+game "Cookie Clicker"
+
+window width 900
+window height 600
+window title "E#+ Cookie Clicker"
+
+2d canvas
+2d background "#181818"
+
+2d text title "COOKIE CLICKER"
+2d position title 320 40
+
+2d text cookies "Cookies: 0"
+2d position cookies 350 110
+
+2d button cookie "CLICK!"
+2d position cookie 300 220
+2d size cookie 300 100
+
+2d text hint "Click the cookie!"
+2d position hint 350 360
+
+when button cookie is clicked
+    add number 1 to cookies
+    change text cookies to "Cookies: {cookies}"
+end
