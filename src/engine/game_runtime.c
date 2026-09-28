@@ -55,7 +55,23 @@ static UIElement *add_ui(Scene *s,const char *name,const char *type){if(s->uiCou
 static int find_variable(Scene*s,const char*n){for(int i=0;i<s->variableCount;i++)if(!strcmp(s->variables[i].name,n))return i;return -1;}
 static NumberVariable*get_variable(Scene*s,const char*n){int i=find_variable(s,n);if(i>=0)return &s->variables[i];if(s->variableCount>=MAX_VARIABLES)return NULL;NumberVariable*v=&s->variables[s->variableCount++];memset(v,0,sizeof(*v));strncpy_s(v->name,sizeof(v->name),n,_TRUNCATE);return v;}
 static void add_script(Scene*s,const char*type,const char*target,const char*ui,const char*text,float value){if(s->scriptCount>=MAX_SCRIPT_COMMANDS)return;ScriptCommand*c=&s->scripts[s->scriptCount++];memset(c,0,sizeof(*c));strncpy_s(c->type,sizeof(c->type),type,_TRUNCATE);strncpy_s(c->target,sizeof(c->target),target?target:"",_TRUNCATE);strncpy_s(c->ui,sizeof(c->ui),ui?ui:"",_TRUNCATE);strncpy_s(c->text,sizeof(c->text),text?text:"",_TRUNCATE);c->value=value;}
-static void set_ui_text_value(Scene*s,const char*ui,const char*fmt){int idx=find_ui(s,ui);if(idx<0||!fmt)return;UIElement*u=&s->ui[idx];char out[256]={0};size_t n=0;const char*p=fmt;while(*p&&n+1<sizeof(out)){if(p[0]=='{'){const char*e=strchr(p+1,'}');if(e){char name[128]={0};size_t k=(size_t)(e-(p+1));if(k>0&&k<sizeof(name)){memcpy(name,p+1,k);name[k]=0;int vi=find_variable(s,name);if(vi>=0){int w=_snprintf_s(out+n,sizeof(out)-n,_TRUNCATE,"%.0f",s->variables[vi].value);if(w>0)n+=(size_t)w;p=e+1;continue;}}}}out[n++]=*p++;}out[n]=0;strncpy_s(u->text,sizeof(u->text),out,_TRUNCATE);}
+static void set_ui_text_value(Scene*s,const char*ui,const char*fmt){
+    int idx=find_ui(s,ui); if(idx<0||!fmt)return;
+    UIElement*u=&s->ui[idx]; char out[256]={0}; size_t n=0; const char*p=fmt;
+    while(*p&&n+1<sizeof(out)){
+        if(*p=='{'){const char*e=strchr(p+1,'}');
+            if(e){size_t len=(size_t)(e-(p+1));
+                if(len>0&&len<128){char name[128]={0}; memcpy(name,p+1,len); name[len]=0;
+                    int vi=find_variable(s,name);
+                    if(vi>=0){int w=_snprintf_s(out+n,sizeof(out)-n,_TRUNCATE,"%.0f",s->variables[vi].value);
+                        if(w>0)n+=(size_t)w; p=e+1; continue; }
+                }
+            }
+        }
+        out[n++]=*p++;
+    }
+    out[n]=0; strncpy_s(u->text,sizeof(u->text),out,_TRUNCATE);
+}
 static float script_value(Scene*s,const char*n){int idx=find_variable(s,n);if(idx>=0&&idx<s->variableCount)return s->variables[idx].value;char*e=NULL;float x=strtof(n,&e);return(e&&e!=n)?x:0.0f;}
 static int script_condition(Scene*s,const char*type,const char*a,const char*b){float x=script_value(s,a),y=script_value(s,b);if(!strcmp(type,"ifgt"))return x>y;if(!strcmp(type,"iflt"))return x<y;if(!strcmp(type,"ifeq"))return x==y;if(!strcmp(type,"ifne"))return x!=y;return 1;}
 static void run_button_script(Scene*s,int uiIndex){if(uiIndex<0||uiIndex>=s->uiCount)return;int start=s->scriptStart[uiIndex],end=s->scriptEnd[uiIndex];if(start<0||end<start||end>s->scriptCount)return;int execute=1;int parent[64]={0},depth=0;for(int i=start;i<end;i++){ScriptCommand*c=&s->scripts[i];if(!strcmp(c->type,"ifgt")||!strcmp(c->type,"iflt")||!strcmp(c->type,"ifeq")||!strcmp(c->type,"ifne")){if(depth<64){parent[depth]=execute;execute=execute&&script_condition(s,c->type,c->target,c->ui);depth++;}continue;}if(!strcmp(c->type,"else")){if(depth>0)execute=parent[depth-1]&&!execute;continue;}if(!strcmp(c->type,"end")){if(depth>0){execute=parent[depth-1];depth--;}continue;}if(!execute)continue;NumberVariable*v=get_variable(s,c->target);if(!strcmp(c->type,"addvar")&&v)v->value+=script_value(s,c->ui);if(!strcmp(c->type,"add")&&v)v->value+=c->value;else if(!strcmp(c->type,"sub")&&v)v->value-=c->value;else if(!strcmp(c->type,"mul")&&v)v->value*=c->value;else if(!strcmp(c->type,"div")&&v&&c->value!=0)v->value/=c->value;else if(!strcmp(c->type,"set")&&v)v->value=c->value;else if(!strcmp(c->type,"text"))set_ui_text_value(s,c->ui,c->text);}}
@@ -121,12 +137,16 @@ static int load_scene(const char *path,Scene *s) {
         if(!strncmp(line,"SCRIPT MUL ",11)){char a[128]={0};float v=1;if(sscanf_s(line+11,"%127s %f",a,(unsigned)_countof(a),&v)==2)add_script(s,"mul",a,NULL,NULL,v);continue;}
         if(!strncmp(line,"SCRIPT DIV ",11)){char a[128]={0};float v=1;if(sscanf_s(line+11,"%127s %f",a,(unsigned)_countof(a),&v)==2)add_script(s,"div",a,NULL,NULL,v);continue;}
         if(!strncmp(line,"SCRIPT TEXT ",12)){
-            char ui[128]={0}, t[256]={0};
-            int n=sscanf_s(line+12,"%127s %255[^\r\n]",ui,(unsigned)_countof(ui),t,(unsigned)_countof(t));
-            if(n==2){
-                while(*t==' ') memmove(t,t+1,strlen(t));
-                size_t len=strlen(t);
-                if(len>=2 && t[0]=='"' && t[len-1]=='"'){ t[len-1]=0; memmove(t,t+1,strlen(t)); }
+            char ui[128]={0},t[256]={0}; const char*p=line+12; while(*p==' ')p++;
+            if(*p=='"'){p++; const char*e=strchr(p,'"');
+                if(e){size_t n=(size_t)(e-p); if(n>=sizeof(ui))n=sizeof(ui)-1; memcpy(ui,p,n); ui[n]=0;
+                    p=e+1; while(*p==' ')p++;
+                    if(*p=='"'){p++; e=strrchr(p,'"'); if(e){size_t n2=(size_t)(e-p); if(n2>=sizeof(t))n2=sizeof(t)-1; memcpy(t,p,n2); t[n2]=0; add_script(s,"text",NULL,ui,t,0);}}
+                }
+            }else{
+                sscanf_s(p,"%127s %255[^\r\n]",ui,(unsigned)_countof(ui),t,(unsigned)_countof(t));
+                while(*t==' ')memmove(t,t+1,strlen(t));
+                if(t[0]=='"'&&t[strlen(t)-1]=='"'){t[strlen(t)-1]=0;memmove(t,t+1,strlen(t));}
                 add_script(s,"text",NULL,ui,t,0);
             }
             continue;
