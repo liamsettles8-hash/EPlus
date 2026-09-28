@@ -139,6 +139,13 @@ static void render_entity(const Entity *e) {
 }
 
 static void render_2d(Scene *s) {
+    /*
+       The 2D layer is a real screen-space canvas. Draw its background first,
+       then every UI element on top. This also makes a canvas visible even
+       when the source only contains "2d canvas" and no UI elements yet.
+    */
+    DrawRectangle(0,0,s->width,s->height,s->background);
+
     Vector2 mp=GetMousePosition();
     for(int i=0;i<s->uiCount;i++) {
         UIElement *u=&s->ui[i];
