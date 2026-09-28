@@ -26,12 +26,20 @@ static void eval(const char*e,char*out,size_t cap){
 }
 static void printline(char*s){char o[4096];eval(trim(s+12),o,sizeof(o));printf("%s\n",o);}
 static int value_num(const char*s){struct V*v=findv(s);return v?atoi(v->v):atoi(s);}
+static void condition_value(const char*src,char*out,size_t cap){
+ char tmp[512];strncpy_s(tmp,sizeof(tmp),trim((char*)src),_TRUNCATE);
+ char*e=trim(tmp);size_t n=strlen(e);
+ if(n>=2&&e[0]=='"'&&e[n-1]=='"'){e[n-1]=0;memmove(e,e+1,n-1);}
+ else {struct V*v=findv(e);if(v)strncpy_s(out,cap,v->v,_TRUNCATE);else strncpy_s(out,cap,e,_TRUNCATE);return;}
+ strncpy_s(out,cap,e,_TRUNCATE);
+}
 static int condition(char*s){
- char left[256],right[256];char* p;int a,b;
+ char left[256],right[256],lv[512],rv[512];char* p;int a,b;
+ if((p=strstr(s," is not equal to "))) { *p=0;strcpy_s(left,sizeof(left),trim(s));strcpy_s(right,sizeof(right),trim(p+17));condition_value(left,lv,sizeof(lv));condition_value(right,rv,sizeof(rv));return strcmp(lv,rv)!=0;}
  if((p=strstr(s," is greater than "))) { *p=0;strcpy_s(left,sizeof(left),trim(s));strcpy_s(right,sizeof(right),trim(p+17));return value_num(left)>value_num(right);}
  if((p=strstr(s," is less than "))) { *p=0;strcpy_s(left,sizeof(left),trim(s));strcpy_s(right,sizeof(right),trim(p+14));return value_num(left)<value_num(right);}
- if((p=strstr(s," is equal to "))) { *p=0;strcpy_s(left,sizeof(left),trim(s));strcpy_s(right,sizeof(right),trim(p+13));return !strcmp(findv(left)?findv(left)->v:left,right);}
- if((p=strstr(s," is not equal to "))) { *p=0;strcpy_s(left,sizeof(left),trim(s));strcpy_s(right,sizeof(right),trim(p+17));return strcmp(findv(left)?findv(left)->v:left,right)!=0;}
+ if((p=strstr(s," is equal to "))) { *p=0;strcpy_s(left,sizeof(left),trim(s));strcpy_s(right,sizeof(right),trim(p+13));condition_value(left,lv,sizeof(lv));condition_value(right,rv,sizeof(rv));return !strcmp(lv,rv);}
+ if((p=strstr(s," is "))) { *p=0;strcpy_s(left,sizeof(left),trim(s));strcpy_s(right,sizeof(right),trim(p+4));condition_value(left,lv,sizeof(lv));condition_value(right,rv,sizeof(rv));return !strcmp(lv,rv);}
  a=value_num(trim(s));b=0;return a!=b;
 }
 
@@ -74,8 +82,9 @@ int run_eplus(const char*src){
    for(int r=0;r<times;r++)for(int j=i+1;j<end;j++){char*t=trim(ls[j]);if(!strncmp(t,"print words ",12))printline(t);else if(!strncmp(t,"set ",4)){char*p=strstr(t+4," to ");if(p){*p=0;char name[64],val[1024];strncpy_s(name,sizeof(name),trim(t+4),_TRUNCATE);strncpy_s(val,sizeof(val),trim(p+4),_TRUNCATE);char e[1024];eval(val,e,sizeof(e));setv(name,e);}}}
    i=end;continue;
   }
-  if(!strncmp(s,"if ",3)){
-   char cond[1024];strncpy_s(cond,sizeof(cond),s+3,_TRUNCATE);char*then=strstr(cond," then");if(then)*then=0;
+  if(!strncmp(s,"and if ",7)||!strncmp(s,"if ",3)){
+   const char*expr=!strncmp(s,"and if ",7)?s+7:s+3;
+   char cond[1024];strncpy_s(cond,sizeof(cond),expr,_TRUNCATE);char*then=strstr(cond," then");if(then)*then=0;
    int yes=condition(trim(cond)),end=i+1,el=-1;while(end<n&&strcmp(trim(ls[end]),"end")){if(!strcmp(trim(ls[end]),"else"))el=end;end++;}
    int a=yes?i+1:(el>=0?el+1:end),b=yes?(el>=0?el:end):end;
    for(int j=a;j<b;j++){char*t=trim(ls[j]);if(!strncmp(t,"print words ",12))printline(t);}
