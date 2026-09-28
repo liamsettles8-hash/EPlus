@@ -13,7 +13,7 @@ static void quoted(const char*s,char*out,size_t cap){const char*a=strchr(s,'"');
 
 static int is_game_source(const char*s){
  const char*p=s;while(*p){char line[2048];size_t n=0;while(*p&&*p!='\n'&&n+1<sizeof(line))line[n++]=*p++;line[n]=0;char*q=trim(line);
- if(!strncmp(q,"game ",5)||!strncmp(q,"window ",7)||!strncmp(q,"camera ",7)||!strncmp(q,"player ",7)||!strncmp(q,"arena ",6)||!strncmp(q,"enemy ",6)||!strncmp(q,"weapon ",7)||!strncmp(q,"game spawn ",11)||!strncmp(q,"game max ",9)||!strncmp(q,"game win ",9)||!strncmp(q,"create ",7)||!strncmp(q,"load model ",11)||!strncmp(q,"spawn model ",12)||!strncmp(q,"2d ",3)||!strncmp(q,"if button ",10))return 1;
+ if(!strncmp(q,"game ",5)||!strncmp(q,"window ",7)||!strncmp(q,"camera ",7)||!strncmp(q,"player ",7)||!strncmp(q,"arena ",6)||!strncmp(q,"enemy ",6)||!strncmp(q,"weapon ",7)||!strncmp(q,"game spawn ",11)||!strncmp(q,"game max ",9)||!strncmp(q,"game win ",9)||!strncmp(q,"create ",7)||!strncmp(q,"load model ",11)||!strncmp(q,"spawn model ",12)||!strncmp(q,"import ",7)||!strncmp(q,"object ",7)||!strncmp(q,"when object ",12)||!strncmp(q,"every second",12)||!strncmp(q,"2d ",3)||!strncmp(q,"if button ",10))return 1;
  if(*p=='\n')p++;}return 0;
 }
 static int compile_game(const char*src,const char*path){
@@ -27,6 +27,26 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"window width ",13)){int v=1280;sscanf_s(s+13,"%d",&v);fprintf(f,"WINDOW_WIDTH %d\n",v);}
   else if(!strncmp(s,"window height ",14)){int v=720;sscanf_s(s+14,"%d",&v);fprintf(f,"WINDOW_HEIGHT %d\n",v);}
   else if(!strncmp(s,"window title ",13)){quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
+  else if(!strncmp(s,"import ",7)){
+   char file[512]={0},alias[128]={0};
+   if(sscanf_s(s+7," "%c",file,(unsigned)_countof(file))){}
+   const char *p=strchr(s+7,'"');
+   if(p){p++;const char *e=strchr(p,'"');if(e){size_t n=(size_t)(e-p);if(n>=sizeof(file))n=sizeof(file)-1;memcpy(file,p,n);file[n]=0;p=e+1;}}
+   if(file[0]){const char *a=strstr(p?p:s," as ");if(a){a+=4;while(*a==' ')a++;if(*a=='"'){a++;const char *e=strchr(a,'"');if(e){size_t n=(size_t)(e-a);if(n>=sizeof(alias))n=sizeof(alias)-1;memcpy(alias,a,n);alias[n]=0;}}}}
+   if(file[0]&&alias[0])fprintf(f,"IMPORT %s "%s"\n",alias,file);
+  }
+  else if(!strncmp(s,"object create ",14)){
+   char n[128]={0},type[64]={0};
+   if(sscanf_s(s+14," "%127[^"]" "%63[^"]"",n,(unsigned)_countof(n),type,(unsigned)_countof(type))==2)fprintf(f,"ENTITY %s MODEL %s\n",n,type);
+  }
+  else if(!strncmp(s,"object position ",16)){char n[128]={0};float a=0,b=0,d=0;if(sscanf_s(s+16," "%127[^"]" %f %f %f",n,(unsigned)_countof(n),&a,&b,&d)==4)fprintf(f,"POS %s %.3f %.3f %.3f\n",n,a,b,d);}
+  else if(!strncmp(s,"object scale ",13)){char n[128]={0};float v=1;if(sscanf_s(s+13," "%127[^"]" %f",n,(unsigned)_countof(n),&v)==2)fprintf(f,"SCALE %s %.3f\n",n,v);}
+  else if(!strncmp(s,"object rotation ",16)){char n[128]={0};float x=0,y=0,z=0;if(sscanf_s(s+16," "%127[^"]" %f %f %f",n,(unsigned)_countof(n),&x,&y,&z)==4)fprintf(f,"ROT %s %.3f %.3f %.3f\n",n,x,y,z);}
+  else if(!strncmp(s,"object color ",13)){char n[128]={0};int r=255,g=255,b=255;if(sscanf_s(s+13," "%127[^"]" %d %d %d",n,(unsigned)_countof(n),&r,&g,&b)==4)fprintf(f,"COLOR %s %d %d %d\n",n,r,g,b);}
+  else if(!strncmp(s,"object texture ",15)){char n[128]={0},a[128]={0};if(sscanf_s(s+15," "%127[^"]" "%127[^"]"",n,(unsigned)_countof(n),a,(unsigned)_countof(a))==2)fprintf(f,"TEXTURE %s %s\n",n,a);}
+  else if(!strncmp(s,"object clickable ",17)){char n[128]={0};if(sscanf_s(s+17," "%127[^"]"",n,(unsigned)_countof(n))==1)fprintf(f,"CLICKABLE %s\n",n);}
+  else if(!strncmp(s,"when object ",12)){char n[128]={0};if(sscanf_s(s+12," "%127[^"]"",n,(unsigned)_countof(n))==1)fprintf(f,"SCRIPT_OBJECT %s\n",n);}
+  else if(!strncmp(s,"every second",12)){fprintf(f,"TIMER_START\n");}
   else if(!strncmp(s,"2d canvas",9)){fprintf(f,"CANVAS 1\n");}
   else if(!strncmp(s,"2d background ",14)){quoted(s,q,sizeof(q));fprintf(f,"BACKGROUND %s\n",q);}
   else if(!strncmp(s,"2d text ",8)){char n[128]={0},t[256]={0};if(sscanf_s(s+8," \"%127[^\"]\" \"%255[^\"]\"",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2)fprintf(f,"TEXT %s \"%s\"\n",n,t);else{sscanf_s(s+8,"%127s",n,(unsigned)_countof(n));quoted(s,t,sizeof(t));fprintf(f,"TEXT %s \"%s\"\n",n,t);}}
