@@ -18,7 +18,7 @@ typedef struct { char name[128], type[16], text[256]; float x,y,w,h; } UIElement
 typedef struct {
     char name[128], model[128], texture[128];
     Vector3 pos, rotation;
-    float scale, health, maxHealth, speed, damage, cooldown;
+    float scale, health, maxHealth, speed, damage, cooldown, fireRate;
     Color color;
     char followTarget[128];
     float followDistance;
