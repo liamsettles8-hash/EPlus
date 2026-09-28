@@ -522,7 +522,9 @@ int main(int argc,char **argv) {
         if(gameDead||gameWon){
             EnableCursor();
             if(IsKeyPressed(KEY_ESCAPE))break;
-        } else { DisableCursor();
+        } else {
+            DisableCursor();
+        }
 
         float sunDir[3]={-0.45f,-0.85f,-0.25f};
         float camPos[3]={cam.position.x,cam.position.y,cam.position.z};
