@@ -177,7 +177,7 @@ static int load_scene(const char *path,Scene *s) {
             if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;
             if(lastScriptObject>=0)s->scriptObjectEnd[lastScriptObject]=s->scriptCount;
             char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ei=find_entity(s,n);if(ei>=0){s->scriptObjectStart[ei]=s->scriptCount;lastScriptObject=ei;lastScriptButton=-1;}}continue;}
-        if(!strncmp(line,"TIMER_START",11)){s->timerStart=s->scriptCount;lastScriptButton=-1;lastScriptObject=-1;continue;}
+        if(!strncmp(line,"TIMER_START",11)){if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;if(lastScriptObject>=0)s->scriptObjectEnd[lastScriptObject]=s->scriptCount;s->timerStart=s->scriptCount;lastScriptButton=-1;lastScriptObject=-1;continue;}
         if(!strncmp(line,"SCRIPT ADD ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2)add_script(s,"add",n,NULL,NULL,v);continue;}
         if(!strncmp(line,"SCRIPT SET ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2){if(lastScriptButton<0){NumberVariable*v0=get_variable(s,n);if(v0)v0->value=v;}else add_script(s,"set",n,NULL,NULL,v);}continue;}
         if(!strncmp(line,"SCRIPT ADDVAR ",14)){char a[128]={0},b[128]={0};if(sscanf_s(line+14,"%127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2)add_script(s,"addvar",a,b,NULL,0);continue;}
