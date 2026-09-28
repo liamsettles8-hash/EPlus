@@ -15,6 +15,7 @@
 #define SAVE 106
 #define GUIDE 107
 #define CLEAR 108
+#define EXTENSIONS 111
 #define SETTINGS 109
 #define DARK 201
 #define LIGHT 202
@@ -200,6 +201,26 @@ static void check_updates(HWND h,int automatic){
     free(u);
 }
 
+static void install_extension(HWND h,int which){
+    const wchar_t *name=which==0?L"E#+ 3D Editor":L"E#+ 2D Editor";
+    const wchar_t *file=which==0?L"EPlus3DEditor.html":L"EPlus2DEditor.html";
+    const wchar_t *url=which==0?L"https://raw.githubusercontent.com/liamsettles8-hash/EPlus/main/extensions/EPlus3DEditor.html":L"https://raw.githubusercontent.com/liamsettles8-hash/EPlus/main/extensions/EPlus2DEditor.html";
+    wchar_t base[MAX_PATH],dir[MAX_PATH],dest[MAX_PATH];
+    if(!GetEnvironmentVariableW(L"APPDATA",base,MAX_PATH)){MessageBoxW(h,L"Could not find APPDATA.",L"E#+ Extensions",MB_OK|MB_ICONERROR);return;}
+    swprintf_s(dir,MAX_PATH,L"%s\\EPlus\\Extensions",base);
+    CreateDirectoryW(dir,NULL);
+    swprintf_s(dest,MAX_PATH,L"%s\\%s",dir,file);
+    set_text(console,L"E#+ Extensions\\r\\n\\r\\n> Downloading extension...\\r\\n");
+    if(!download_file(url,dest)){append_console(L"> Extension download failed.\\r\\n");MessageBoxW(h,L"Could not download the extension.",L"E#+ Extensions",MB_OK|MB_ICONERROR);return;}
+    append_console(L"> Extension installed.\\r\\n");
+    ShellExecuteW(h,L"open",dest,NULL,NULL,SW_SHOWNORMAL);
+    (void)name;
+}
+static void extensions_window(HWND h){
+    int r=MessageBoxW(h,L"E#+ EXTENSIONS\\r\\n\\r\\nYES  Install 3D Editor\\r\\nNO   Install 2D Editor\\r\\nCANCEL  Close",L"E#+ Extensions",MB_YESNOCANCEL|MB_ICONQUESTION);
+    if(r==IDYES)install_extension(h,0);else if(r==IDNO)install_extension(h,1);
+}
+
 static void file_dialog(int save){
     wchar_t p[MAX_PATH]=L"Program.eplus";OPENFILENAMEW o={0};o.lStructSize=sizeof(o);o.hwndOwner=mainWnd;
     o.lpstrFilter=L"E#+ files (*.eplus)\0*.eplus\0All files\0*.*\0";o.lpstrFile=p;o.nMaxFile=MAX_PATH;o.lpstrDefExt=L"eplus";
@@ -301,8 +322,8 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
         editor=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"# Welcome to E#+\r\nprint words \"Hello from E#+!\"\r\n\r\nset name to \"developer\"\r\nprint words \"Hello \" + name\r\n",WS_CHILD|WS_VISIBLE|WS_VSCROLL|WS_HSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,10,60,500,500,h,(HMENU)ED,0,0);
         console=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"E#+ Console\r\n\r\n> Ready. Press Run to execute your E#+ program.\r\n",WS_CHILD|WS_VISIBLE|WS_VSCROLL|ES_MULTILINE|ES_AUTOVSCROLL|ES_AUTOHSCROLL,520,60,500,500,h,(HMENU)CONSOLE_OUT,0,0);
         oldConsoleProc=(WNDPROC)SetWindowLongPtrW(console,GWLP_WNDPROC,(LONG_PTR)console_proc);
-        const wchar_t*names[]={L"Run",L"New",L"Open",L"Save",L"Guide",L"Settings",L"Updates",L"Clear"};int ids[]={RUN,NEW,OPEN,SAVE,GUIDE,SETTINGS,CHECK_UPDATES,CLEAR};
-        for(int i=0;i<8;i++){HWND b=CreateWindowW(L"BUTTON",names[i],WS_CHILD|WS_VISIBLE,10+i*105,12,98,34,h,(HMENU)(INT_PTR)ids[i],0,0);SendMessageW(b,WM_SETFONT,(WPARAM)font,TRUE);}
+        const wchar_t*names[]={L"Run",L"New",L"Open",L"Save",L"Guide",L"Settings",L"Updates",L"Extensions",L"Clear"};int ids[]={RUN,NEW,OPEN,SAVE,GUIDE,SETTINGS,CHECK_UPDATES,EXTENSIONS,CLEAR};
+        for(int i=0;i<9;i++){HWND b=CreateWindowW(L"BUTTON",names[i],WS_CHILD|WS_VISIBLE,10+i*105,12,98,34,h,(HMENU)(INT_PTR)ids[i],0,0);SendMessageW(b,WM_SETFONT,(WPARAM)font,TRUE);}
         make_font();return 0;
     }
     case WM_CTLCOLORSTATIC:case WM_CTLCOLOREDIT:{HDC dc=(HDC)w;SetTextColor(dc,textColor);SetBkColor(dc,inputColor);return (LRESULT)inputBrush;}
@@ -311,7 +332,7 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
     case WM_APP_UPDATE_RESULT:{ UpdateInfo *u=(UpdateInfo*)l; if(u){ if(u->available && u->downloadUrl[0]){ wchar_t msg[512];swprintf_s(msg,512,L"E#+ Studio %s is available.\r\n\r\nUpdate now?",u->version);if(MessageBoxW(h,msg,L"E#+ Update Available",MB_YESNO|MB_ICONINFORMATION)==IDYES)install_update(h,u->downloadUrl); } free(u);} return 0;}
     case WM_COMMAND:
         switch(LOWORD(w)){
-        case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:file_dialog(1);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:check_updates(h,0);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;}
+        case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:file_dialog(1);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:check_updates(h,0);return 0;case EXTENSIONS:extensions_window(h);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;}
         break;
     case WM_DESTROY:
         if(font)DeleteObject(font);if(bgBrush)DeleteObject(bgBrush);if(panelBrush)DeleteObject(panelBrush);if(inputBrush)DeleteObject(inputBrush);PostQuitMessage(0);return 0;
