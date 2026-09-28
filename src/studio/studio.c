@@ -26,6 +26,7 @@
 #define CHECK_UPDATES 110
 #define WM_APP_UPDATE_RESULT (WM_APP + 20)
 #define WM_APP_RUN_DONE (WM_APP + 21)
+#define WM_APP_AUTH_RESULT (WM_APP + 22)
 
 #define EPLUS_VERSION L"1.5.0"
 #define EPLUS_REPO_OWNER L"liamsettles8-hash"
@@ -291,12 +292,77 @@ static void enter_editor(HWND h,int guest){
 }
 static void show_signup(HWND owner);
 static void show_auth(HWND owner);
+typedef struct AuthJob {
+    HWND window;
+    int signup;
+    char email[320];
+    char password[320];
+} AuthJob;
+
+typedef struct AuthResult {
+    int success;
+    HWND window;
+    char token[4096];
+    char uid[256];
+    char email[320];
+    char error[512];
+} AuthResult;
+
+static DWORD WINAPI auth_worker(LPVOID param){
+    AuthJob *job=(AuthJob*)param;
+    AuthResult *res=(AuthResult*)calloc(1,sizeof(AuthResult));
+    if(!res){free(job);return 0;}
+    res->window=job->window;
+    char ee[700],pp[700],body[1600],path[512];
+    json_escape(job->email,ee,sizeof(ee));
+    json_escape(job->password,pp,sizeof(pp));
+    sprintf_s(body,sizeof(body),"{\\"email\\":\\"%s\\",\\"password\\":\\"%s\\",\\"returnSecureToken\\":true}",ee,pp);
+    sprintf_s(path,sizeof(path),"/v1/accounts:%s?key=%s",job->signup?"signUp":"signInWithPassword",FIREBASE_API_KEY);
+    wchar_t wp2[512];
+    MultiByteToWideChar(CP_UTF8,0,path,-1,wp2,512);
+    char *resp=NULL;DWORD len=0;
+    if(!http_request_json(L"identitytoolkit.googleapis.com",wp2,L"POST",body,L"Content-Type: application/json\\r\\n",&resp,&len)){
+        strcpy_s(res->error,sizeof(res->error),"Could not connect to Firebase. Check the API key and internet connection.");
+    }else if(!json_string(resp,"idToken",res->token,sizeof(res->token))||!json_string(resp,"localId",res->uid,sizeof(res->uid))){
+        json_string(resp,"message",res->error,sizeof(res->error));
+        if(!res->error[0])strcpy_s(res->error,sizeof(res->error),"Firebase returned an invalid response.");
+    }else{
+        json_string(resp,"email",res->email,sizeof(res->email));
+        res->success=1;
+    }
+    free(resp);
+    free(job);
+    PostMessageW(mainWnd,WM_APP_AUTH_RESULT,0,(LPARAM)res);
+    return 0;
+}
+
 static void firebase_auth(HWND w,int signup){
- wchar_t we[320],wp[320];GetWindowTextW(GetDlgItem(w,501),we,320);GetWindowTextW(GetDlgItem(w,502),wp,320);if(!we[0]||!wp[0]){SetWindowTextW(GetDlgItem(w,503),L"Enter both email and password.");return;}
- int eb=WideCharToMultiByte(CP_UTF8,0,we,-1,NULL,0,NULL,NULL),pb=WideCharToMultiByte(CP_UTF8,0,wp,-1,NULL,0,NULL,NULL);char*e=(char*)malloc(eb),*p=(char*)malloc(pb);if(!e||!p){free(e);free(p);return;}WideCharToMultiByte(CP_UTF8,0,we,-1,e,eb,NULL,NULL);WideCharToMultiByte(CP_UTF8,0,wp,-1,p,pb,NULL,NULL);
- char ee[700],pp[700];json_escape(e,ee,sizeof(ee));json_escape(p,pp,sizeof(pp));char body[1600];sprintf_s(body,sizeof(body),"{\"email\":\"%s\",\"password\":\"%s\",\"returnSecureToken\":true}",ee,pp);free(e);free(p);char path[512];sprintf_s(path,sizeof(path),"/v1/accounts:%s?key=%s",signup?"signUp":"signInWithPassword",FIREBASE_API_KEY);wchar_t wp2[512];MultiByteToWideChar(CP_UTF8,0,path,-1,wp2,512);
- char*resp=NULL;DWORD len=0;if(!http_request_json(L"identitytoolkit.googleapis.com",wp2,L"POST",body,L"Content-Type: application/json\r\n",&resp,&len)){SetWindowTextW(GetDlgItem(w,503),L"Could not connect to Firebase. Check the API key and internet connection.");free(resp);return;}
- if(!json_string(resp,"idToken",firebaseIdToken,sizeof(firebaseIdToken))||!json_string(resp,"localId",firebaseUid,sizeof(firebaseUid))){char msg[512]={0};json_string(resp,"message",msg,sizeof(msg));free(resp);wchar_t wm[512];MultiByteToWideChar(CP_UTF8,0,msg,-1,wm,512);SetWindowTextW(GetDlgItem(w,503),wm[0]?wm:L"Firebase returned an invalid response.");firebaseIdToken[0]=0;firebaseUid[0]=0;return;}json_string(resp,"email",firebaseEmail,sizeof(firebaseEmail));free(resp);enter_editor(mainWnd,0);
+    wchar_t we[320],wp[320];
+    GetWindowTextW(GetDlgItem(w,501),we,320);
+    GetWindowTextW(GetDlgItem(w,502),wp,320);
+    if(!we[0]||!wp[0]){
+        SetWindowTextW(GetDlgItem(w,503),L"Enter both email and password.");
+        return;
+    }
+    int eb=WideCharToMultiByte(CP_UTF8,0,we,-1,NULL,0,NULL,NULL);
+    int pb=WideCharToMultiByte(CP_UTF8,0,wp,-1,NULL,0,NULL,NULL);
+    AuthJob *job=(AuthJob*)calloc(1,sizeof(AuthJob));
+    if(!job){SetWindowTextW(GetDlgItem(w,503),L"Not enough memory.");return;}
+    job->window=w;job->signup=signup;
+    WideCharToMultiByte(CP_UTF8,0,we,-1,job->email,(int)sizeof(job->email),NULL,NULL);
+    WideCharToMultiByte(CP_UTF8,0,wp,-1,job->password,(int)sizeof(job->password),NULL,NULL);
+    SetWindowTextW(GetDlgItem(w,503),signup?L"Creating account...":L"Signing in...");
+    EnableWindow(GetDlgItem(w,signup?520:510),FALSE);
+    if(!signup)EnableWindow(GetDlgItem(w,511),FALSE);
+    HANDLE th=CreateThread(NULL,0,auth_worker,job,0,NULL);
+    if(!th){
+        EnableWindow(GetDlgItem(w,signup?520:510),TRUE);
+        if(!signup)EnableWindow(GetDlgItem(w,511),TRUE);
+        SetWindowTextW(GetDlgItem(w,503),L"Could not start the authentication task.");
+        free(job);
+        return;
+    }
+    CloseHandle(th);
 }
 static LRESULT CALLBACK auth_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){if(m==WM_COMMAND){if(LOWORD(wp)==510){firebase_auth(w,0);return 0;}if(LOWORD(wp)==511){ShowWindow(w,SW_HIDE);show_signup(mainWnd);return 0;}if(LOWORD(wp)==512){enter_editor(mainWnd,1);return 0;}}if(m==WM_CLOSE)return 0;return DefWindowProcW(w,m,wp,lp);}
 static LRESULT CALLBACK signup_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){if(m==WM_COMMAND){if(LOWORD(wp)==520){firebase_auth(w,1);return 0;}if(LOWORD(wp)==521){ShowWindow(w,SW_HIDE);show_auth(mainWnd);return 0;}}if(m==WM_CLOSE)return 0;return DefWindowProcW(w,m,wp,lp);}
@@ -388,6 +454,25 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
     case WM_CTLCOLORSTATIC:case WM_CTLCOLOREDIT:{HDC dc=(HDC)w;SetTextColor(dc,textColor);SetBkColor(dc,inputColor);return (LRESULT)inputBrush;}
     case WM_ERASEBKGND:{HDC dc=(HDC)w;RECT r;GetClientRect(h,&r);FillRect(dc,&r,bgBrush);return 1;}
     case WM_SIZE:{int W=LOWORD(l),H=HIWORD(l);int left=(W-30)/2;MoveWindow(editor,10,60,left,H-70,TRUE);MoveWindow(console,left+20,60,W-left-30,H-70,TRUE);return 0;}
+    case WM_APP_AUTH_RESULT:{
+        AuthResult *r=(AuthResult*)l;
+        if(r){
+            HWND w=r->window;
+            if(r->success){
+                strcpy_s(firebaseIdToken,sizeof(firebaseIdToken),r->token);
+                strcpy_s(firebaseUid,sizeof(firebaseUid),r->uid);
+                strcpy_s(firebaseEmail,sizeof(firebaseEmail),r->email);
+                enter_editor(h,0);
+            }else if(IsWindow(w)){
+                SetWindowTextA(GetDlgItem(w,503),r->error[0]?r->error:"Authentication failed.");
+                EnableWindow(GetDlgItem(w,510),TRUE);
+                EnableWindow(GetDlgItem(w,511),TRUE);
+                EnableWindow(GetDlgItem(w,520),TRUE);
+            }
+            free(r);
+        }
+        return 0;
+    }
     case WM_APP_UPDATE_RESULT:{ UpdateInfo *u=(UpdateInfo*)l; if(u){ if(u->available && u->downloadUrl[0]){ wchar_t msg[512];swprintf_s(msg,512,L"E#+ Studio %s is available.\r\n\r\nUpdate now?",u->version);if(MessageBoxW(h,msg,L"E#+ Update Available",MB_YESNO|MB_ICONINFORMATION)==IDYES)install_update(h,u->downloadUrl); } free(u);} return 0;}
     case WM_COMMAND:switch(LOWORD(w)){case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:save_cloud(h);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:if(!guestMode)check_updates(h,0);return 0;case 301:show_native_extension(h,1);return 0;case 302:show_native_extension(h,2);return 0;case 303:if(extWindow)ShowWindow(extWindow,SW_HIDE);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;}break;
     case WM_DESTROY:
