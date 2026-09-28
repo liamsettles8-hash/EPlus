@@ -219,6 +219,34 @@ static void install_extension(HWND h,int which){
     ShellExecuteW(h,L"open",dest,NULL,NULL,SW_SHOWNORMAL);
     (void)name;
 }
+static LRESULT CALLBACK ext_canvas_proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
+    if(m==WM_LBUTTONDOWN&&extMode==1){extDrawing=1;SetCapture(w);return 0;}
+    if(m==WM_LBUTTONUP){extDrawing=0;ReleaseCapture();return 0;}
+    if(m==WM_MOUSEMOVE&&extDrawing&&extMode==1){
+        HDC dc=GetDC(w);int x=GET_X_LPARAM(lp),y=GET_Y_LPARAM(lp);
+        HBRUSH b=CreateSolidBrush(extColor);HGDIOBJ old=SelectObject(dc,b);
+        Ellipse(dc,x-extBrush,y-extBrush,x+extBrush,y+extBrush);
+        SelectObject(dc,old);DeleteObject(b);ReleaseDC(w,dc);return 0;
+    }
+    if(m==WM_PAINT){
+        PAINTSTRUCT ps;HDC dc=BeginPaint(w,&ps);RECT r;GetClientRect(w,&r);
+        FillRect(dc,&r,CreateSolidBrush(extMode==1?RGB(245,245,245):RGB(16,19,25)));
+        if(extMode==2){
+            HPEN p=CreatePen(PS_SOLID,2,RGB(100,150,240));HGDIOBJ old=SelectObject(dc,p);
+            int cx=r.right/2,cy=r.bottom/2;
+            Rectangle(dc,cx-70,cy-70,cx+70,cy+70);
+            MoveToEx(dc,cx-70,cy-70,NULL);LineTo(dc,cx-40,cy-100);LineTo(dc,cx+100,cy-100);LineTo(dc,cx+70,cy-70);
+            MoveToEx(dc,cx+70,cy-70,NULL);LineTo(dc,cx+100,cy-100);LineTo(dc,cx+100,cy+40);LineTo(dc,cx+70,cy+70);
+            SelectObject(dc,old);DeleteObject(p);
+            SetBkMode(dc,TRANSPARENT);SetTextColor(dc,RGB(220,225,235));TextOutW(dc,20,20,L"3D Scene Editor",15);
+        }
+        EndPaint(w,&ps);return 0;
+    }
+    return DefWindowProcW(w,m,wp,lp);
+}
+static void register_extension_canvas(HINSTANCE hi){
+    WNDCLASSW c={0};c.lpfnWndProc=ext_canvas_proc;c.hInstance=hi;c.hCursor=LoadCursor(NULL,IDC_CROSS);c.lpszClassName=L"EPlusExtensionCanvas";RegisterClassW(&c);
+}
 static void extensions_window(HWND h){
     HMENU menu=CreatePopupMenu();
     AppendMenuW(menu,MF_STRING,301,L"2D Editor");
@@ -236,7 +264,7 @@ static void extensions_window(HWND h){
             CreateWindowW(L"BUTTON",L"Back to Code",WS_CHILD|WS_VISIBLE,10,10,120,34,extPanel,(HMENU)303,0,0);
             CreateWindowW(L"BUTTON",L"New",WS_CHILD|WS_VISIBLE,140,10,90,34,extPanel,(HMENU)304,0,0);
             CreateWindowW(L"BUTTON",L"Clear",WS_CHILD|WS_VISIBLE,240,10,90,34,extPanel,(HMENU)305,0,0);
-            extCanvas=CreateWindowExW(WS_EX_CLIENTEDGE,L"STATIC",L"",WS_CHILD|WS_VISIBLE,10,55,900,400,extPanel,(HMENU)306,0,0);
+            extCanvas=CreateWindowExW(WS_EX_CLIENTEDGE,L"EPlusExtensionCanvas",L"",WS_CHILD|WS_VISIBLE,10,55,900,400,extPanel,(HMENU)306,GetModuleHandleW(NULL),0);
         }
         SetWindowTextW(extPanel,extMode==1?L"E#+ 2D Editor":L"E#+ 3D Editor");
         ShowWindow(extPanel,SW_SHOW);
@@ -358,7 +386,7 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
     case WM_APP_UPDATE_RESULT:{ UpdateInfo *u=(UpdateInfo*)l; if(u){ if(u->available && u->downloadUrl[0]){ wchar_t msg[512];swprintf_s(msg,512,L"E#+ Studio %s is available.\r\n\r\nUpdate now?",u->version);if(MessageBoxW(h,msg,L"E#+ Update Available",MB_YESNO|MB_ICONINFORMATION)==IDYES)install_update(h,u->downloadUrl); } free(u);} return 0;}
     case WM_COMMAND:
         switch(LOWORD(w)){
-        case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:file_dialog(1);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:check_updates(h,0);return 0;case EXTENSIONS:extensions_window(h);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;}
+        case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:file_dialog(1);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:check_updates(h,0);return 0;case EXTENSIONS:extensions_window(h);return 0;case 303:if(extPanel)ShowWindow(extPanel,SW_HIDE);ShowWindow(editor,SW_SHOW);ShowWindow(console,SW_SHOW);return 0;case 304:extDrawing=0;InvalidateRect(extCanvas,NULL,TRUE);return 0;case 305:InvalidateRect(extCanvas,NULL,TRUE);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;}
         break;
     case WM_DESTROY:
         if(font)DeleteObject(font);if(bgBrush)DeleteObject(bgBrush);if(panelBrush)DeleteObject(panelBrush);if(inputBrush)DeleteObject(inputBrush);PostQuitMessage(0);return 0;
@@ -377,5 +405,5 @@ static void firstlaunch(HWND h){
 int WINAPI wWinMain(HINSTANCE hi,HINSTANCE hp,PWSTR cmd,int show){
     (void)hp;(void)cmd;WNDCLASSW c={0};c.lpfnWndProc=wnd;c.hInstance=hi;c.hCursor=LoadCursor(NULL,IDC_ARROW);c.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);c.lpszClassName=L"EPlusStudio";RegisterClassW(&c);
     mainWnd=CreateWindowW(L"EPlusStudio",L"E#+ Studio 0.2",WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,1150,700,NULL,NULL,hi,NULL);if(!mainWnd)return 1;
-    ShowWindow(mainWnd,show);UpdateWindow(mainWnd);firstlaunch(mainWnd);CreateThread(NULL,0,update_thread,mainWnd,0,NULL);MSG msg;while(GetMessageW(&msg,NULL,0,0)>0){TranslateMessage(&msg);DispatchMessageW(&msg);}return(int)msg.wParam;
+    register_extension_canvas(hi);ShowWindow(mainWnd,show);UpdateWindow(mainWnd);firstlaunch(mainWnd);CreateThread(NULL,0,update_thread,mainWnd,0,NULL);MSG msg;while(GetMessageW(&msg,NULL,0,0)>0){TranslateMessage(&msg);DispatchMessageW(&msg);}return(int)msg.wParam;
 }
