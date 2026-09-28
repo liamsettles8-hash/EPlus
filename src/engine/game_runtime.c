@@ -125,6 +125,7 @@ static int load_scene(const char *path,Scene *s) {
             }
             continue;
         }
+        if(!strncmp(line,"RULE ",5)){
             char event[64],who[128],action[128],target[128]; float value=0;
             int n=sscanf_s(line,"RULE %63s %127s %127s %127s %f",event,(unsigned)_countof(event),who,(unsigned)_countof(who),action,(unsigned)_countof(action),target,(unsigned)_countof(target),&value);
             if(n>=4)add_rule(s,event,who,action,target,n==5?value:0);
