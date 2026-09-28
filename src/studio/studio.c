@@ -623,6 +623,17 @@ static void show_settings(HWND h){
     if(r==IDYES){fontSize=20;make_font();}else if(r==IDNO){fontSize=18;make_font();}
 }
 
+static void show_native_extension(HWND h,int mode){
+    extMode=mode;ShowWindow(editor,SW_HIDE);ShowWindow(console,SW_HIDE);
+    if(!extPanel){
+        extPanel=CreateWindowExW(WS_EX_CLIENTEDGE,L"STATIC",L"E#+ Native Editor",WS_CHILD|WS_VISIBLE,10,60,1000,500,h,NULL,0,0);
+        CreateWindowW(L"BUTTON",L"Back to Code",WS_CHILD|WS_VISIBLE,10,10,120,34,extPanel,(HMENU)303,0,0);
+        CreateWindowW(L"BUTTON",L"New",WS_CHILD|WS_VISIBLE,140,10,90,34,extPanel,(HMENU)304,0,0);
+        CreateWindowW(L"BUTTON",L"Clear",WS_CHILD|WS_VISIBLE,240,10,90,34,extPanel,(HMENU)305,0,0);
+        extCanvas=CreateWindowExW(WS_EX_CLIENTEDGE,L"EPlusExtensionCanvas",L"",WS_CHILD|WS_VISIBLE,10,55,900,400,extPanel,(HMENU)306,GetModuleHandleW(NULL),0);
+    } else ShowWindow(extPanel,SW_SHOW);
+    InvalidateRect(extCanvas,NULL,TRUE);
+}
 static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
     switch(m){
     case WM_CREATE:{
@@ -644,11 +655,11 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
     }
     case WM_CTLCOLORSTATIC:case WM_CTLCOLOREDIT:{HDC dc=(HDC)w;SetTextColor(dc,textColor);SetBkColor(dc,inputColor);return (LRESULT)inputBrush;}
     case WM_ERASEBKGND:{HDC dc=(HDC)w;RECT r;GetClientRect(h,&r);FillRect(dc,&r,bgBrush);return 1;}
-    case WM_SIZE:{int W=LOWORD(l),H=HIWORD(l);int left=(W-30)/2;MoveWindow(editor,10,60,left,H-70,TRUE);MoveWindow(console,left+20,60,W-left-30,H-70,TRUE);return 0;}
+    case WM_SIZE:{int W=LOWORD(l),H=HIWORD(l);int left=(W-30)/2;MoveWindow(editor,10,60,left,H-70,TRUE);MoveWindow(console,left+20,60,W-left-30,H-70,TRUE);if(extPanel)MoveWindow(extPanel,10,60,W-20,H-70,TRUE);if(extCanvas)MoveWindow(extCanvas,10,55,W-40,H-110,TRUE);return 0;}
     case WM_APP_UPDATE_RESULT:{ UpdateInfo *u=(UpdateInfo*)l; if(u){ if(u->available && u->downloadUrl[0]){ wchar_t msg[512];swprintf_s(msg,512,L"E#+ Studio %s is available.\r\n\r\nUpdate now?",u->version);if(MessageBoxW(h,msg,L"E#+ Update Available",MB_YESNO|MB_ICONINFORMATION)==IDYES)install_update(h,u->downloadUrl); } free(u);} return 0;}
     case WM_COMMAND:
         switch(LOWORD(w)){
-        case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:file_dialog(1);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:check_updates(h,0);return 0;case EXTENSIONS:extensions_window(h);return 0;case 301:extMode=1;ShowWindow(editor,SW_HIDE);ShowWindow(console,SW_HIDE);if(extPanel)ShowWindow(extPanel,SW_SHOW);if(!extPanel)extensions_window(h);return 0;case 302:extMode=2;ShowWindow(editor,SW_HIDE);ShowWindow(console,SW_HIDE);if(extPanel)ShowWindow(extPanel,SW_SHOW);if(!extPanel)extensions_window(h);return 0;case 303:if(extPanel)ShowWindow(extPanel,SW_HIDE);ShowWindow(editor,SW_SHOW);ShowWindow(console,SW_SHOW);return 0;case 304:extDrawing=0;InvalidateRect(extCanvas,NULL,TRUE);return 0;case 305:InvalidateRect(extCanvas,NULL,TRUE);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;}
+        case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:file_dialog(1);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:check_updates(h,0);return 0;case EXTENSIONS:extensions_window(h);return 0;case 301:show_native_extension(h,1);return 0;case 302:show_native_extension(h,2);return 0;case 303:if(extPanel)ShowWindow(extPanel,SW_HIDE);ShowWindow(editor,SW_SHOW);ShowWindow(console,SW_SHOW);return 0;case 304:extDrawing=0;InvalidateRect(extCanvas,NULL,TRUE);return 0;case 305:InvalidateRect(extCanvas,NULL,TRUE);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");return 0;}
         break;
     case WM_DESTROY:
         if(font)DeleteObject(font);if(bgBrush)DeleteObject(bgBrush);if(panelBrush)DeleteObject(panelBrush);if(inputBrush)DeleteObject(inputBrush);PostQuitMessage(0);return 0;
