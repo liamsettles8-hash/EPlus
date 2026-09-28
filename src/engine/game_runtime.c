@@ -48,8 +48,13 @@ typedef struct {
     int scriptCount;
     int scriptStart[MAX_UI];
     int scriptEnd[MAX_UI];
+    int scriptObjectStart[MAX_ENTITIES];
+    int scriptObjectEnd[MAX_ENTITIES];
     NumberVariable variables[MAX_VARIABLES];
     int variableCount;
+    ImageAsset assets[128];
+    int assetCount;
+    int timerStart, timerEnd;
 } Scene;
 
 static int find_ui(Scene *s,const char *name){for(int i=0;i<s->uiCount;i++)if(!strcmp(s->ui[i].name,name))return i;return -1;}
@@ -101,7 +106,6 @@ static void run_button_script(Scene*s,int uiIndex){if(uiIndex>=0&&uiIndex<s->uiC
 static void run_object_script(Scene*s,int entityIndex){if(entityIndex>=0&&entityIndex<s->entityCount)run_script_range(s,s->scriptObjectStart[entityIndex],s->scriptObjectEnd[entityIndex]);}
 static Color parse_hex(const char *v){unsigned r=18,g=22,b=30;if(v&&v[0]=='#')sscanf_s(v+1,"%02x%02x%02x",&r,&g,&b);return(Color){(unsigned char)r,(unsigned char)g,(unsigned char)b,255};}
 static int find_asset(Scene *s,const char *name){for(int i=0;i<s->assetCount;i++)if(!strcmp(s->assets[i].name,name))return i;return -1;}
-static Entity *get_entity(Scene*s,const char*n){int i=find_entity(s,n);return i>=0?&s->entities[i]:NULL;}
 static int find_entity(Scene *s, const char *name) {
     for (int i=0;i<s->entityCount;i++) if (!strcmp(s->entities[i].name,name)) return i;
     return -1;
