@@ -270,7 +270,7 @@ static void render_2d(Scene *s) {
        then every UI element on top. This also makes a canvas visible even
        when the source only contains "2d canvas" and no UI elements yet.
     */
-    DrawRectangle(0,0,s->width,s->height,s->background);
+    if(s->canvas)DrawRectangle(0,0,s->width,s->height,s->background);
 
     Vector2 mp=GetMousePosition();
     for(int i=0;i<s->uiCount;i++) {
@@ -307,7 +307,7 @@ int main(int argc,char **argv) {
     RestoreWindow();
     SetTargetFPS(120);
     /* 2D elements are an overlay in every scene. A canvas scene is still 2D-only. */
-    if(s.canvas) EnableCursor(); else DisableCursor();
+    if(s.canvas||s.uiCount>0) EnableCursor(); else DisableCursor();
     /* Resolve bundled shaders relative to the runtime executable without
        depending on windows.h (which conflicts with raylib's Win32 names). */
     char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
@@ -375,7 +375,7 @@ int main(int argc,char **argv) {
             if(timerAccumulator>=1.0f){timerAccumulator-=1.0f;run_script_range(&s,s.timerStart,s.timerEnd);}
         }
         if(player>=0 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
-            Vector2 clickPos=(Vector2){s.width*0.5f,s.height*0.5f};
+            Vector2 clickPos=IsCursorOnScreen()?GetMousePosition():(Vector2){s.width*0.5f,s.height*0.5f};
             Ray ray=GetScreenToWorldRay(clickPos,cam);
             float best=1e30f;int hit=-1;
             for(int i=0;i<s.entityCount;i++)if(s.entities[i].alive&&s.entities[i].clickable){
