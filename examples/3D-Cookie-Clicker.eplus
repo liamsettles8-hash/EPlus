@@ -1,0 +1,92 @@
+game "3D Cookie Clicker"
+
+window width 1280
+window height 720
+window title "E#+ 3D Cookie Clicker"
+
+camera first person
+
+player create "Player"
+player position 0 0 8
+player speed 0
+
+2d text "title" "COOKIE FACTORY"
+2d text "cookies" "Cookies: {cookies}"
+2d text "power" "Click Power: {clickPower}"
+2d text "rate" "Passive: {perSecond}/sec"
+2d text "hint" "Click the 3D cookie"
+
+2d button "upgrade" "UPGRADE CLICK POWER"
+2d position "title" 32 28
+2d position "cookies" 32 68
+2d position "power" 32 102
+2d position "rate" 32 136
+2d position "hint" 32 180
+2d position "upgrade" 32 610
+2d size "upgrade" 280 58
+
+set number cookies to 0
+set number clickPower to 1
+set number upgradeCost to 25
+set number perSecond to 1
+
+object create "Cookie" "cookie"
+object position "Cookie" 0 1.4 1.5
+object scale "Cookie" 2.2
+object color "Cookie" 196 92 34
+object clickable "Cookie"
+
+object create "Chip1" "sphere"
+object position "Chip1" -0.65 1.9 0.95
+object scale "Chip1" 0.13
+object color "Chip1" 65 28 12
+
+object create "Chip2" "sphere"
+object position "Chip2" 0.55 1.65 0.9
+object scale "Chip2" 0.13
+object color "Chip2" 65 28 12
+
+object create "Chip3" "sphere"
+object position "Chip3" 0.2 1.05 0.85
+object scale "Chip3" 0.13
+object color "Chip3" 65 28 12
+
+object create "Chip4" "sphere"
+object position "Chip4" -0.35 1.25 0.8
+object scale "Chip4" 0.13
+object color "Chip4" 65 28 12
+
+object create "Pedestal" "cylinder"
+object position "Pedestal" 0 -0.1 1.5
+object scale "Pedestal" 3.2
+object color "Pedestal" 42 45 52
+
+object create "LeftMachine" "cube"
+object position "LeftMachine" -5 1 -1
+object scale "LeftMachine" 2
+object color "LeftMachine" 55 65 85
+
+object create "RightMachine" "cube"
+object position "RightMachine" 5 1 -1
+object scale "RightMachine" 2
+object color "RightMachine" 70 55 85
+
+when object "Cookie" clicked
+    add number clickPower to cookies
+    change text "cookies" "Cookies: {cookies}"
+end
+
+when button "upgrade"
+    if cookies is greater than upgradeCost then
+        subtract number upgradeCost from cookies
+        add number 1 to clickPower
+        multiply number 2 to upgradeCost
+        change text "cookies" "Cookies: {cookies}"
+        change text "power" "Click Power: {clickPower}"
+    end
+end
+
+every second
+    add number perSecond to cookies
+    change text "cookies" "Cookies: {cookies}"
+end
