@@ -139,7 +139,7 @@ static int load_scene(const char *path,Scene *s) {
         if(sscanf_s(line,"TITLE %255[^\r\n]",s->title,(unsigned)_countof(s->title))==1) continue;
         if(!strncmp(line,"IMPORT ",7)){
             char alias[128]={0},path[512]={0};
-            if(sscanf_s(line+7,"%127s %511[^\\r\\n]",alias,(unsigned)_countof(alias),path,(unsigned)_countof(path))>=2){
+            if(sscanf_s(line+7,"%127s %511[^\r\n]",alias,(unsigned)_countof(alias),path,(unsigned)_countof(path))>=2){
                 while(*path==' ')memmove(path,path+1,strlen(path));
                 if(path[0]=='"'&&path[strlen(path)-1]=='"'){path[strlen(path)-1]=0;memmove(path,path+1,strlen(path));}
                 if(s->assetCount<128){ImageAsset*a=&s->assets[s->assetCount++];memset(a,0,sizeof(*a));strncpy_s(a->name,sizeof(a->name),alias,_TRUNCATE);strncpy_s(a->path,sizeof(a->path),path,_TRUNCATE);}
@@ -294,7 +294,7 @@ int main(int argc,char **argv) {
     for(int ai=0;ai<s.assetCount;ai++){
         s.assets[ai].texture=LoadTexture(s.assets[ai].path);
         s.assets[ai].loaded=IsTextureValid(s.assets[ai].texture)?1:0;
-        if(!s.assets[ai].loaded)fprintf(stderr,"E#+: could not load image import %s (%s)\\n",s.assets[ai].name,s.assets[ai].path);
+        if(!s.assets[ai].loaded)fprintf(stderr,"E#+: could not load image import %s (%s)\n",s.assets[ai].name,s.assets[ai].path);
     }
     if(!IsWindowReady()){fprintf(stderr,"E#+ Game Runtime: raylib could not create the window.\n");return 1;}
     /* Keep the game window visible and centered on the current monitor. */
