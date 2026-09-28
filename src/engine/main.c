@@ -29,15 +29,15 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"window title ",13)){quoted(s,q,sizeof(q));fprintf(f,"TITLE %s\n",q);}
   else if(!strncmp(s,"2d canvas",9)){fprintf(f,"CANVAS 1\n");}
   else if(!strncmp(s,"2d background ",14)){quoted(s,q,sizeof(q));fprintf(f,"BACKGROUND %s\n",q);}
-  else if(!strncmp(s,"2d text ",8)){char n[128]={0};sscanf_s(s+8,"%127s",n,(unsigned)_countof(n));quoted(s,q,sizeof(q));fprintf(f,"TEXT %s %s\n",n,q);}
-  else if(!strncmp(s,"2d button ",10)){char n[128]={0};sscanf_s(s+10,"%127s",n,(unsigned)_countof(n));quoted(s,q,sizeof(q));fprintf(f,"BUTTON %s %s\n",n,q);}
-  else if(!strncmp(s,"2d position ",12)){char n[128]={0};float x=0,y=0;sscanf_s(s+12,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_POS %s %.1f %.1f\n",n,x,y);}
-  else if(!strncmp(s,"2d size ",8)){char n[128]={0};float x=120,y=40;sscanf_s(s+8,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_SIZE %s %.1f %.1f\n",n,x,y);}
+  else if(!strncmp(s,"2d text ",8)){char n[128]={0},t[256]={0};if(sscanf_s(s+8," \"%127[^\"]\" \"%255[^\"]\"",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2)fprintf(f,"TEXT %s \"%s\"\n",n,t);else{sscanf_s(s+8,"%127s",n,(unsigned)_countof(n));quoted(s,t,sizeof(t));fprintf(f,"TEXT %s \"%s\"\n",n,t);}}
+  else if(!strncmp(s,"2d button ",10)){char n[128]={0},t[256]={0};if(sscanf_s(s+10," \"%127[^\"]\" \"%255[^\"]\"",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2)fprintf(f,"BUTTON %s \"%s\"\n",n,t);else{sscanf_s(s+10,"%127s",n,(unsigned)_countof(n));quoted(s,t,sizeof(t));fprintf(f,"BUTTON %s \"%s\"\n",n,t);}}
+  else if(!strncmp(s,"2d position ",12)){char n[128]={0};float x=0,y=0;if(sscanf_s(s+12," \"%127[^\"]\" %f %f",n,(unsigned)_countof(n),&x,&y)==3)fprintf(f,"UI_POS %s %.1f %.1f\n",n,x,y);else{sscanf_s(s+12,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_POS %s %.1f %.1f\n",n,x,y);}}
+  else if(!strncmp(s,"2d size ",8)){char n[128]={0};float x=120,y=40;if(sscanf_s(s+8," \"%127[^\"]\" %f %f",n,(unsigned)_countof(n),&x,&y)!=3)sscanf_s(s+8,"%127s %f %f",n,(unsigned)_countof(n),&x,&y);fprintf(f,"UI_SIZE %s %.1f %.1f\n",n,x,y);}
     else if(!strncmp(s,"if button ",10)){char n[128]={0};sscanf_s(s,"if button \\"%127[^\\\"]\\\" is clicked",n,(unsigned)_countof(n));if(n[0])fprintf(f,"SCRIPT_BUTTON %s\\n",n);}
   else if(!strncmp(s,"when button ",12)){char n[128]={0};const char*p=s+12;while(*p==' ')p++;if(*p=='"'){p++;const char*e=strchr(p,'"');if(e){size_t z=(size_t)(e-p);if(z>=sizeof(n))z=sizeof(n)-1;memcpy(n,p,z);n[z]=0;}}else{sscanf_s(p,"%127s",n,(unsigned)_countof(n));}if(n[0])fprintf(f,"SCRIPT_BUTTON %s\n",n);}
   else if(!strncmp(s,"add number ",11)){char operand[128]={0},var[128]={0};if(sscanf_s(s+11,"%127s to %127s",operand,(unsigned)_countof(operand),var,(unsigned)_countof(var))==2){char*e=NULL;float v=strtof(operand,&e);if(e&&*e==0)fprintf(f,"SCRIPT ADD %s %.3f\n",var,v);else fprintf(f,"SCRIPT ADDVAR %s %s\n",var,operand);}}
   else if(!strncmp(s,"set number ",11)){char var[128]={0};float v=0;sscanf_s(s+11,"%127s to %f",var,(unsigned)_countof(var),&v);fprintf(f,"SCRIPT SET %s %.3f\n",var,v);}
-  else if(!strncmp(s,"change text ",12)){char ui[128]={0};sscanf_s(s+12,"%127s",ui,(unsigned)_countof(ui));quoted(s,q,sizeof(q));fprintf(f,"SCRIPT TEXT %s %s\n",ui,q);}
+  else if(!strncmp(s,"change text ",12)){char ui[128]={0};if(sscanf_s(s+12," \"%127[^\"]\" ",ui,(unsigned)_countof(ui))!=1)sscanf_s(s+12,"%127s",ui,(unsigned)_countof(ui));quoted(s,q,sizeof(q));fprintf(f,"SCRIPT TEXT %s \"%s\"\n",ui,q);}
   else if(!strncmp(s,"subtract number ",15)){char var[128]={0};float v=0;sscanf_s(s+15,"%f from %127s",&v,var,(unsigned)_countof(var));fprintf(f,"SCRIPT SUB %s %.3f\\n",var,v);}
   else if(!strncmp(s,"multiply number ",16)){char var[128]={0};float v=1;sscanf_s(s+16,"%f to %127s",&v,var,(unsigned)_countof(var));fprintf(f,"SCRIPT MUL %s %.3f\\n",var,v);}
   else if(!strncmp(s,"divide number ",14)){char var[128]={0};float v=1;sscanf_s(s+14,"%f from %127s",&v,var,(unsigned)_countof(var));fprintf(f,"SCRIPT DIV %s %.3f\\n",var,v);}
