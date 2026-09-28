@@ -153,6 +153,19 @@ int run_eplus(const char*src){
    else {char evaluated[1024];eval(val,evaluated,sizeof(evaluated));strncpy_s(val,sizeof(val),evaluated,_TRUNCATE);if(val[0]=='"'&&val[strlen(val)-1]=='"'){size_t z=strlen(val)-2;memmove(val,val+1,z);val[z]=0;}}
    setv(name,val);continue;
   }
+  if(!strncmp(s,"add number ",11)||!strncmp(s,"subtract number ",15)||!strncmp(s,"multiply number ",16)||!strncmp(s,"divide number ",14)){
+   char op[32]={0},num[128]={0},word[16]={0},name[64]={0}; const char*base=s;
+   if(!strncmp(s,"add number ",11)){strcpy_s(op,sizeof(op),"add");base=s+11;}
+   else if(!strncmp(s,"subtract number ",15)){strcpy_s(op,sizeof(op),"subtract");base=s+15;}
+   else if(!strncmp(s,"multiply number ",16)){strcpy_s(op,sizeof(op),"multiply");base=s+16;}
+   else {strcpy_s(op,sizeof(op),"divide");base=s+14;}
+   if(sscanf_s(base,"%127s %15s %63s",num,(unsigned)_countof(num),word,(unsigned)_countof(word),name,(unsigned)_countof(name))==3){
+     struct V*v=findv(name); double x=strtod(num,NULL), y=v?strtod(v->v,NULL):0;
+     if(!strcmp(op,"add"))y+=x; else if(!strcmp(op,"subtract"))y-=x; else if(!strcmp(op,"multiply"))y*=x; else if(x!=0)y/=x;
+     char out[128];snprintf(out,sizeof(out),"%.15g",y);setv(name,out);
+   }
+   continue;
+  }
   if(!strncmp(s,"repeat ",7)){
    int times=0,end=i+1;sscanf_s(s,"repeat %d times",&times);while(end<n&&strcmp(trim(ls[end]),"end"))end++;
    for(int r=0;r<times;r++)for(int j=i+1;j<end;j++){char*t=trim(ls[j]);if(!strncmp(t,"print words ",12))printline(t);else if(!strncmp(t,"set ",4)){char*p=strstr(t+4," to ");if(p){*p=0;char name[64],val[1024];strncpy_s(name,sizeof(name),trim(t+4),_TRUNCATE);strncpy_s(val,sizeof(val),trim(p+4),_TRUNCATE);char e[1024];eval(val,e,sizeof(e));setv(name,e);}}}
