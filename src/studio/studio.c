@@ -30,7 +30,7 @@
 #define WM_APP_RUN_DONE (WM_APP + 21)
 #define WM_APP_AUTH_RESULT (WM_APP + 22)
 
-#define EPLUS_VERSION L"1.5.0"
+#define EPLUS_VERSION L"2.0.0"
 #define EPLUS_REPO_OWNER L"liamsettles8-hash"
 #define EPLUS_REPO_NAME L"EPlus"
 #define EPLUS_RELEASE_ASSET L"EPlusStudio-Setup.exe"
