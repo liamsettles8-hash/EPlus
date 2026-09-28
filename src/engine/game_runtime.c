@@ -28,7 +28,7 @@ typedef struct {
 } Rule;
 
 typedef struct { char type[32], target[128], ui[128], text[256]; float value; } ScriptCommand;
-typedef struct { char name[128]; float value; } NumberVariable;
+typedef struct { char name[128]; float value; } NumberVariable;\ntypedef struct { char name[128], path[512]; Texture2D texture; int loaded; } ImageAsset;
 typedef struct {
     int width, height;
     float winTime;
@@ -74,8 +74,32 @@ static void set_ui_text_value(Scene*s,const char*ui,const char*fmt){
 }
 static float script_value(Scene*s,const char*n){int idx=find_variable(s,n);if(idx>=0&&idx<s->variableCount)return s->variables[idx].value;char*e=NULL;float x=strtof(n,&e);return(e&&e!=n)?x:0.0f;}
 static int script_condition(Scene*s,const char*type,const char*a,const char*b){float x=script_value(s,a),y=script_value(s,b);if(!strcmp(type,"ifgt"))return x>y;if(!strcmp(type,"iflt"))return x<y;if(!strcmp(type,"ifeq"))return x==y;if(!strcmp(type,"ifne"))return x!=y;return 1;}
-static void run_button_script(Scene*s,int uiIndex){if(uiIndex<0||uiIndex>=s->uiCount)return;int start=s->scriptStart[uiIndex],end=s->scriptEnd[uiIndex];if(start<0||end<start||end>s->scriptCount)return;int execute=1;int parent[64]={0},depth=0;for(int i=start;i<end;i++){ScriptCommand*c=&s->scripts[i];if(!strcmp(c->type,"ifgt")||!strcmp(c->type,"iflt")||!strcmp(c->type,"ifeq")||!strcmp(c->type,"ifne")){if(depth<64){parent[depth]=execute;execute=execute&&script_condition(s,c->type,c->target,c->ui);depth++;}continue;}if(!strcmp(c->type,"else")){if(depth>0)execute=parent[depth-1]&&!execute;continue;}if(!strcmp(c->type,"end")){if(depth>0){execute=parent[depth-1];depth--;}continue;}if(!execute)continue;if(!strcmp(c->type,"text")){set_ui_text_value(s,c->ui,c->text);continue;}NumberVariable*v=get_variable(s,c->target);if(!strcmp(c->type,"addvar")&&v)v->value+=script_value(s,c->ui);if(!strcmp(c->type,"add")&&v)v->value+=c->value;else if(!strcmp(c->type,"sub")&&v)v->value-=c->value;else if(!strcmp(c->type,"mul")&&v)v->value*=c->value;else if(!strcmp(c->type,"div")&&v&&c->value!=0)v->value/=c->value;else if(!strcmp(c->type,"set")&&v)v->value=c->value;}}
+static void run_script_range(Scene*s,int start,int end){
+    if(start<0||end<start||end>s->scriptCount)return;
+    int execute=1,parent[64]={0},depth=0;
+    for(int i=start;i<end;i++){
+        ScriptCommand*c=&s->scripts[i];
+        if(!strcmp(c->type,"ifgt")||!strcmp(c->type,"iflt")||!strcmp(c->type,"ifeq")||!strcmp(c->type,"ifne")){
+            if(depth<64){parent[depth]=execute;execute=execute&&script_condition(s,c->type,c->target,c->ui);depth++;}continue;
+        }
+        if(!strcmp(c->type,"else")){if(depth>0)execute=parent[depth-1]&&!execute;continue;}
+        if(!strcmp(c->type,"end")){if(depth>0){execute=parent[depth-1];depth--;}continue;}
+        if(!execute)continue;
+        if(!strcmp(c->type,"text")){set_ui_text_value(s,c->ui,c->text);continue;}
+        NumberVariable*v=get_variable(s,c->target);
+        if(!strcmp(c->type,"addvar")&&v)v->value+=script_value(s,c->ui);
+        else if(!strcmp(c->type,"add")&&v)v->value+=c->value;
+        else if(!strcmp(c->type,"sub")&&v)v->value-=c->value;
+        else if(!strcmp(c->type,"mul")&&v)v->value*=c->value;
+        else if(!strcmp(c->type,"div")&&v&&c->value!=0)v->value/=c->value;
+        else if(!strcmp(c->type,"set")&&v)v->value=c->value;
+    }
+}
+static void run_button_script(Scene*s,int uiIndex){if(uiIndex>=0&&uiIndex<s->uiCount)run_script_range(s,s->scriptStart[uiIndex],s->scriptEnd[uiIndex]);}
+static void run_object_script(Scene*s,int entityIndex){if(entityIndex>=0&&entityIndex<s->entityCount)run_script_range(s,s->scriptObjectStart[entityIndex],s->scriptObjectEnd[entityIndex]);}
 static Color parse_hex(const char *v){unsigned r=18,g=22,b=30;if(v&&v[0]=='#')sscanf_s(v+1,"%02x%02x%02x",&r,&g,&b);return(Color){(unsigned char)r,(unsigned char)g,(unsigned char)b,255};}
+static int find_asset(Scene *s,const char *name){for(int i=0;i<s->assetCount;i++)if(!strcmp(s->assets[i].name,name))return i;return -1;}
+static Entity *get_entity(Scene*s,const char*n){int i=find_entity(s,n);return i>=0?&s->entities[i]:NULL;}
 static int find_entity(Scene *s, const char *name) {
     for (int i=0;i<s->entityCount;i++) if (!strcmp(s->entities[i].name,name)) return i;
     return -1;
@@ -86,7 +110,7 @@ static Entity *add_entity(Scene *s, const char *name) {
     memset(e,0,sizeof(*e));
     strncpy_s(e->name,sizeof(e->name),name,_TRUNCATE);
     strcpy_s(e->model,sizeof(e->model),"cube");
-    e->scale=1; e->health=100; e->maxHealth=100; e->speed=5; e->alive=1; e->solid=1;
+    e->scale=1; e->health=100; e->maxHealth=100; e->speed=5; e->alive=1; e->solid=1; e->color=(Color){210,70,75,255};
     return e;
 }
 static void add_rule(Scene *s,const char *event,const char *a,const char *action,const char *b,float value) {
@@ -102,15 +126,23 @@ static void add_rule(Scene *s,const char *event,const char *a,const char *action
 static int load_scene(const char *path,Scene *s) {
     FILE *f=fopen(path,"r"); char line[2048];
     if(!f)return 0;
-    memset(s,0,sizeof(*s)); for(int i=0;i<MAX_UI;i++){s->scriptStart[i]=-1;s->scriptEnd[i]=-1;} s->width=1280;s->height=720;
+    memset(s,0,sizeof(*s)); for(int i=0;i<MAX_UI;i++){s->scriptStart[i]=-1;s->scriptEnd[i]=-1;} for(int i=0;i<MAX_ENTITIES;i++){s->scriptObjectStart[i]=-1;s->scriptObjectEnd[i]=-1;} s->timerStart=-1;s->timerEnd=-1;s->width=1280;s->height=720;
     strcpy_s(s->title,sizeof(s->title),"E#+ Game");
     strcpy_s(s->shader,sizeof(s->shader),"none"); s->background=(Color){18,22,30,255};
-    int lastScriptButton=-1;
+    int lastScriptButton=-1,lastScriptObject=-1;
     while(fgets(line,sizeof(line),f)) {
         char a[256]={0},b[256]={0},c[256]={0}; float x,y,z;
         if(sscanf_s(line,"WINDOW_WIDTH %d",&s->width)==1) continue;
         if(sscanf_s(line,"WINDOW_HEIGHT %d",&s->height)==1) continue;
         if(sscanf_s(line,"TITLE %255[^\r\n]",s->title,(unsigned)_countof(s->title))==1) continue;
+        if(!strncmp(line,"IMPORT ",7)){
+            char alias[128]={0},path[512]={0};
+            if(sscanf_s(line+7,"%127s %511[^\\r\\n]",alias,(unsigned)_countof(alias),path,(unsigned)_countof(path))>=2){
+                while(*path==' ')memmove(path,path+1,strlen(path));
+                if(path[0]=='"'&&path[strlen(path)-1]=='"'){path[strlen(path)-1]=0;memmove(path,path+1,strlen(path));}
+                if(s->assetCount<128){ImageAsset*a=&s->assets[s->assetCount++];memset(a,0,sizeof(*a));strncpy_s(a->name,sizeof(a->name),alias,_TRUNCATE);strncpy_s(a->path,sizeof(a->path),path,_TRUNCATE);}
+            } continue;
+        }
         if(sscanf_s(line,"SHADER %63s",s->shader,(unsigned)_countof(s->shader))==1) continue;
         if(!strncmp(line,"CANVAS ",7)){s->canvas=1;continue;}
         if(!strncmp(line,"BACKGROUND ",11)){char v[32]={0};if(sscanf_s(line+11,"%31s",v,(unsigned)_countof(v))==1)s->background=parse_hex(v);continue;}
@@ -128,8 +160,23 @@ static int load_scene(const char *path,Scene *s) {
         if(sscanf_s(line,"SPEED %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].speed=x;continue;}
         if(sscanf_s(line,"DAMAGE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].damage=x;continue;}
         if(sscanf_s(line,"MODEL %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].model,sizeof(s->entities[i].model),b,_TRUNCATE);continue;}
+        if(sscanf_s(line,"SCALE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].scale=x;continue;}
+        if(sscanf_s(line,"ROT %127s %f %f %f",a,(unsigned)_countof(a),&x,&y,&z)==4){int i=find_entity(s,a);if(i>=0)s->entities[i].rotation=(Vector3){x,y,z};continue;}
+        if(sscanf_s(line,"COLOR %127s %d %d %d",a,(unsigned)_countof(a),(int*)&x,(int*)&y,(int*)&z)==4){int i=find_entity(s,a);if(i>=0)s->entities[i].color=(Color){(unsigned char)x,(unsigned char)y,(unsigned char)z,255};continue;}
+        if(sscanf_s(line,"TEXTURE %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].texture,sizeof(s->entities[i].texture),b,_TRUNCATE);continue;}
+        if(sscanf_s(line,"CLICKABLE %127s",a,(unsigned)_countof(a))==1){int i=find_entity(s,a);if(i>=0)s->entities[i].clickable=1;continue;}
+
         if(sscanf_s(line,"CONTROL %127s",a,(unsigned)_countof(a))==1){int i=find_entity(s,a);if(i>=0)s->entities[i].controllable=1;continue;}
-        if(!strncmp(line,"SCRIPT_BUTTON ",14)){char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ui=find_ui(s,n);if(ui>=0){if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;s->scriptStart[ui]=s->scriptCount;lastScriptButton=ui;}}continue;}
+        if(!strncmp(line,"SCRIPT_BUTTON ",14)){
+            if(lastScriptObject>=0)s->scriptObjectEnd[lastScriptObject]=s->scriptCount;
+            if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;
+            char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ui=find_ui(s,n);if(ui>=0){s->scriptStart[ui]=s->scriptCount;lastScriptButton=ui;lastScriptObject=-1;}}continue;}
+        if(!strncmp(line,"SCRIPT_OBJECT ",14)){
+            if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;
+            if(lastScriptObject>=0)s->scriptObjectEnd[lastScriptObject]=s->scriptCount;
+            char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ei=find_entity(s,n);if(ei>=0){s->scriptObjectStart[ei]=s->scriptCount;lastScriptObject=ei;lastScriptButton=-1;}}continue;}
+        if(!strncmp(line,"TIMER_START",11)){s->timerStart=s->scriptCount;lastScriptButton=-1;lastScriptObject=-1;continue;}
+char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ui=find_ui(s,n);if(ui>=0){if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;s->scriptStart[ui]=s->scriptCount;lastScriptButton=ui;}}continue;}
         if(!strncmp(line,"SCRIPT ADD ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2)add_script(s,"add",n,NULL,NULL,v);continue;}
         if(!strncmp(line,"SCRIPT SET ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2){if(lastScriptButton<0){NumberVariable*v0=get_variable(s,n);if(v0)v0->value=v;}else add_script(s,"set",n,NULL,NULL,v);}continue;}
         if(!strncmp(line,"SCRIPT ADDVAR ",14)){char a[128]={0},b[128]={0};if(sscanf_s(line+14,"%127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2)add_script(s,"addvar",a,b,NULL,0);continue;}
@@ -193,19 +240,27 @@ static int is_pressed(const char *key) {
     int k=key_code(key);
     return k!=KEY_NULL && IsKeyDown(k);
 }
-static void render_entity(const Entity *e) {
+static void render_entity(const Entity *e,Scene *s,Camera cam,float time) {
     if(!e->alive)return;
+    if(e->texture[0]){
+        int ai=find_asset(s,e->texture);
+        if(ai>=0&&s->assets[ai].loaded){DrawBillboard(cam,s->assets[ai].texture,e->pos,e->scale,e->color);return;}
+    }
     float q=e->scale;
     if(!strcmp(e->model,"cube")) {
-        DrawCube(e->pos,q,q,q,(Color){210,70,75,255});
-        DrawCubeWires(e->pos,q,q,q,BLACK);
+        DrawCube(e->pos,q,q,q,e->color);
+        DrawCubeWires(e->pos,q*1.01f,q*1.01f,q*1.01f,(Color){40,40,45,255});
     } else if(!strcmp(e->model,"sphere")) {
-        DrawSphere(e->pos,q*.5f,(Color){80,150,230,255});
+        DrawSphereEx(e->pos,q,24,32,e->color);
+    } else if(!strcmp(e->model,"cylinder")||!strcmp(e->model,"cookie")) {
+        DrawCylinder(e->pos,q,q,q*0.38f,48,e->color);
+        DrawCylinderWires(e->pos,q*1.01f,q*1.01f,q*0.39f,48,(Color){80,35,15,255});
+    } else if(!strcmp(e->model,"torus")) {
+        DrawTorus(e->pos,q*0.65f,q*0.22f,32,16,e->color);
     } else {
-        DrawCube(e->pos,q,q,q,(Color){150,150,160,255});
+        DrawCube(e->pos,q,q,q,e->color);
     }
 }
-
 static void render_2d(Scene *s) {
     /*
        The 2D layer is a real screen-space canvas. Draw its background first,
@@ -233,6 +288,11 @@ int main(int argc,char **argv) {
     Scene s;
     if(argc<2 || !load_scene(argv[1],&s)){fprintf(stderr,"E#+ Game Runtime: invalid scene.\n");return 1;}
     InitWindow(s.width,s.height,s.title);
+    for(int ai=0;ai<s.assetCount;ai++){
+        s.assets[ai].texture=LoadTexture(s.assets[ai].path);
+        s.assets[ai].loaded=IsTextureValid(s.assets[ai].texture)?1:0;
+        if(!s.assets[ai].loaded)fprintf(stderr,"E#+: could not load image import %s (%s)\\n",s.assets[ai].name,s.assets[ai].path);
+    }
     if(!IsWindowReady()){fprintf(stderr,"E#+ Game Runtime: raylib could not create the window.\n");return 1;}
     /* Keep the game window visible and centered on the current monitor. */
     int monitor=GetCurrentMonitor();
@@ -307,7 +367,23 @@ int main(int argc,char **argv) {
                 grounded = 1;
             }
 
-            for(int r=0;r<s.ruleCount;r++){
+            if(s.timerStart>=0&&s.timerEnd>s.timerStart){
+            static float timerAccumulator=0; timerAccumulator+=dt;
+            if(timerAccumulator>=1.0f){timerAccumulator-=1.0f;run_script_range(&s,s.timerStart,s.timerEnd);}
+        }
+        if(player>=0 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+            Vector2 clickPos=(Vector2){s.width*0.5f,s.height*0.5f};
+            Ray ray=GetScreenToWorldRay(clickPos,cam);
+            float best=1e30f;int hit=-1;
+            for(int i=0;i<s.entityCount;i++)if(s.entities[i].alive&&s.entities[i].clickable){
+                RayCollision rc={0};
+                if(!strcmp(s.entities[i].model,"cube")){float q=s.entities[i].scale;BoundingBox box={{s.entities[i].pos.x-q/2,s.entities[i].pos.y-q/2,s.entities[i].pos.z-q/2},{s.entities[i].pos.x+q/2,s.entities[i].pos.y+q/2,s.entities[i].pos.z+q/2}};rc=GetRayCollisionBox(ray,box);}
+                else rc=GetRayCollisionSphere(ray,s.entities[i].pos,s.entities[i].scale);
+                if(rc.hit&&rc.distance<best){best=rc.distance;hit=i;}
+            }
+            if(hit>=0)run_object_script(&s,hit);
+        }
+        for(int r=0;r<s.ruleCount;r++){
                 Rule *rule=&s.rules[r];
                 if(strcmp(rule->event,"KEY"))continue;
                 if(strcmp(rule->a,"W")&&strcmp(rule->a,"S")&&strcmp(rule->a,"A")&&strcmp(rule->a,"D")&&strcmp(rule->a,"SPACE"))continue;
@@ -358,9 +434,9 @@ int main(int argc,char **argv) {
         ClearBackground(s.background);
         if(!s.canvas){
             BeginMode3D(cam);
-            DrawPlane((Vector3){0,-0.51f,0},(Vector2){100,100},(Color){135,135,135,255});
+            DrawPlane((Vector3){0,-0.51f,0},(Vector2){100,100},(Color){38,43,52,255}); DrawGrid(40,1.0f);
             if(realistic.id>0)BeginShaderMode(realistic);
-            for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i]);
+            for(int i=0;i<s.entityCount;i++)render_entity(&s.entities[i],&s,cam,elapsed);
             if(realistic.id>0)EndShaderMode();
             EndMode3D();
         }
