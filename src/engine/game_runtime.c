@@ -10,6 +10,8 @@
 #define MAX_ENTITIES 256
 #define MAX_RULES 256
 #define MAX_UI 256
+#define MAX_SCRIPT_COMMANDS 512
+#define MAX_VARIABLES 256
 
 typedef struct { char name[128], type[16], text[256]; float x,y,w,h; } UIElement;
 
@@ -25,6 +27,8 @@ typedef struct {
     float value;
 } Rule;
 
+typedef struct { char type[32], target[128], ui[128], text[256]; float value; } ScriptCommand;
+typedef struct { char name[128]; float value; } NumberVariable;
 typedef struct {
     int width, height;
     float winTime;
@@ -38,10 +42,21 @@ typedef struct {
     Color background;
     UIElement ui[MAX_UI];
     int uiCount;
+    ScriptCommand scripts[MAX_SCRIPT_COMMANDS];
+    int scriptCount;
+    int scriptStart[MAX_UI];
+    int scriptEnd[MAX_UI];
+    NumberVariable variables[MAX_VARIABLES];
+    int variableCount;
 } Scene;
 
 static int find_ui(Scene *s,const char *name){for(int i=0;i<s->uiCount;i++)if(!strcmp(s->ui[i].name,name))return i;return -1;}
 static UIElement *add_ui(Scene *s,const char *name,const char *type){if(s->uiCount>=MAX_UI)return NULL;UIElement*u=&s->ui[s->uiCount++];memset(u,0,sizeof(*u));strncpy_s(u->name,sizeof(u->name),name,_TRUNCATE);strncpy_s(u->type,sizeof(u->type),type,_TRUNCATE);u->w=120;u->h=40;return u;}
+static int find_variable(Scene*s,const char*n){for(int i=0;i<s->variableCount;i++)if(!strcmp(s->variables[i].name,n))return i;return -1;}
+static NumberVariable*get_variable(Scene*s,const char*n){int i=find_variable(s,n);if(i>=0)return &s->variables[i];if(s->variableCount>=MAX_VARIABLES)return NULL;NumberVariable*v=&s->variables[s->variableCount++];memset(v,0,sizeof(*v));strncpy_s(v->name,sizeof(v->name),n,_TRUNCATE);return v;}
+static void add_script(Scene*s,const char*type,const char*target,const char*ui,const char*text,float value){if(s->scriptCount>=MAX_SCRIPT_COMMANDS)return;ScriptCommand*c=&s->scripts[s->scriptCount++];memset(c,0,sizeof(*c));strncpy_s(c->type,sizeof(c->type),type,_TRUNCATE);strncpy_s(c->target,sizeof(c->target),target?target:"",_TRUNCATE);strncpy_s(c->ui,sizeof(c->ui),ui?ui:"",_TRUNCATE);strncpy_s(c->text,sizeof(c->text),text?text:"",_TRUNCATE);c->value=value;}
+static void set_ui_text_value(Scene*s,const char*ui,const char*fmt){int idx=find_ui(s,ui);if(idx<0)return;UIElement*u=&s->ui[idx];char out[256]={0};size_t n=0;const char*p=fmt;while(*p&&n+1<sizeof(out)){if(p[0]=='{'){const char*e=strchr(p+1,'}');if(e){char name[128]={0};size_t k=(size_t)(e-(p+1));if(k>=sizeof(name))k=sizeof(name)-1;memcpy(name,p+1,k);name[k]=0;NumberVariable*v=get_variable(s,name);if(v){int w=_snprintf_s(out+n,sizeof(out)-n,_TRUNCATE,"%.0f",v->value);if(w>0)n+=(size_t)w;p=e+1;continue;}}}out[n++]=*p++;}out[n]=0;strncpy_s(u->text,sizeof(u->text),out,_TRUNCATE);}
+static void run_button_script(Scene*s,int uiIndex){if(uiIndex<0||uiIndex>=s->uiCount)return;int start=s->scriptStart[uiIndex],end=s->scriptEnd[uiIndex];for(int i=start;i<end;i++){ScriptCommand*c=&s->scripts[i];NumberVariable*v=get_variable(s,c->target);if(!strcmp(c->type,"add")&&v)v->value+=c->value;else if(!strcmp(c->type,"set")&&v)v->value=c->value;else if(!strcmp(c->type,"text"))set_ui_text_value(s,c->ui,c->text);}}
 static Color parse_hex(const char *v){unsigned r=18,g=22,b=30;if(v&&v[0]=='#')sscanf_s(v+1,"%02x%02x%02x",&r,&g,&b);return(Color){(unsigned char)r,(unsigned char)g,(unsigned char)b,255};}
 static int find_entity(Scene *s, const char *name) {
     for (int i=0;i<s->entityCount;i++) if (!strcmp(s->entities[i].name,name)) return i;
@@ -72,6 +87,7 @@ static int load_scene(const char *path,Scene *s) {
     memset(s,0,sizeof(*s)); s->width=1280;s->height=720;
     strcpy_s(s->title,sizeof(s->title),"E#+ Game");
     strcpy_s(s->shader,sizeof(s->shader),"none"); s->background=(Color){18,22,30,255};
+    int lastScriptButton=-1;
     while(fgets(line,sizeof(line),f)) {
         char a[256]={0},b[256]={0},c[256]={0}; float x,y,z;
         if(sscanf_s(line,"WINDOW_WIDTH %d",&s->width)==1) continue;
@@ -95,12 +111,20 @@ static int load_scene(const char *path,Scene *s) {
         if(sscanf_s(line,"DAMAGE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].damage=x;continue;}
         if(sscanf_s(line,"MODEL %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].model,sizeof(s->entities[i].model),b,_TRUNCATE);continue;}
         if(sscanf_s(line,"CONTROL %127s",a,(unsigned)_countof(a))==1){int i=find_entity(s,a);if(i>=0)s->entities[i].controllable=1;continue;}
+        if(!strncmp(line,"SCRIPT_BUTTON ",14)){char n[128]={0};if(sscanf_s(line+14,"%127s",n,(unsigned)_countof(n))==1){int ui=find_ui(s,n);if(ui>=0){if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;s->scriptStart[ui]=s->scriptCount;lastScriptButton=ui;}}continue;}
+        if(!strncmp(line,"SCRIPT ADD ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2)add_script(s,"add",n,NULL,NULL,v);continue;}
+        if(!strncmp(line,"SCRIPT SET ",11)){char n[128]={0};float v=0;if(sscanf_s(line+11,"%127s %f",n,(unsigned)_countof(n),&v)==2)add_script(s,"set",n,NULL,NULL,v);continue;}
+        if(!strncmp(line,"SCRIPT TEXT ",12)){char ui[128]={0},t[256]={0};if(sscanf_s(line+12,"%127s %255[^\r\n]",ui,(unsigned)_countof(u),t,(unsigned)_countof(t))==2)^ÝÚ[J
+OIÈ	Ê[Y[[Ý™J
+ÜËÝ›[Š
+JNÚYŠÌOOIÈ‰É‰emstrlen(t)-1]=='"')}Ñlstrlen(t)-1]=0;memmove(t,t+1,strlen(t));add_script(s,"text",NULL,ui,t,0);}continue;}
         if(!strncmp(line,"RULE ",5)) {
             char event[64],who[128],action[128],target[128]; float value=0;
             int n=sscanf_s(line,"RULE %63s %127s %127s %127s %f",event,(unsigned)_countof(event),who,(unsigned)_countof(who),action,(unsigned)_countof(action),target,(unsigned)_countof(target),&value);
             if(n>=4)add_rule(s,event,who,action,target,n==5?value:0);
         }
     }
+    if(lastScriptButton>=0)s->scriptEnd[lastScriptButton]=s->scriptCount;
     fclose(f);
     return 1;
 }
@@ -154,6 +178,7 @@ static void render_2d(Scene *s) {
         } else if(!strcmp(u->type,"button")) {
             Rectangle r={(float)u->x,(float)u->y,u->w,u->h};
             int hovered=CheckCollisionPointRec(mp,r);
+            if(hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) run_button_script(s,i);
             DrawRectangleRec(r,hovered?(Color){70,110,190,255}:(Color){50,65,90,255});
             DrawRectangleLinesEx(r,1,RAYWHITE);
             DrawText(u->text,(int)u->x+10,(int)u->y+10,20,RAYWHITE);
@@ -296,7 +321,7 @@ int main(int argc,char **argv) {
             EndMode3D();
         }
         /* Always draw the 2D layer last so HUD/UI stays above the 3D world. */
-        if(s.uiCount>0) render_2d(&s);
+        if(s.canvas || s.uiCount>0) render_2d(&s);
         EndDrawing();
     }
     if(realistic.id>0)UnloadShader(realistic);
