@@ -37,7 +37,13 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"when button ",12)){char n[128]={0};const char*p=s+12;while(*p==' ')p++;if(*p=='"'){p++;const char*e=strchr(p,'"');if(e){size_t z=(size_t)(e-p);if(z>=sizeof(n))z=sizeof(n)-1;memcpy(n,p,z);n[z]=0;}}else{sscanf_s(p,"%127s",n,(unsigned)_countof(n));}if(n[0])fprintf(f,"SCRIPT_BUTTON %s\n",n);}
   else if(!strncmp(s,"add number ",11)){char operand[128]={0},var[128]={0};if(sscanf_s(s+11,"%127s to %127s",operand,(unsigned)_countof(operand),var,(unsigned)_countof(var))==2){char*e=NULL;float v=strtof(operand,&e);if(e&&*e==0)fprintf(f,"SCRIPT ADD %s %.3f\n",var,v);else fprintf(f,"SCRIPT ADDVAR %s %s\n",var,operand);}}
   else if(!strncmp(s,"set number ",11)){char var[128]={0};float v=0;sscanf_s(s+11,"%127s to %f",var,(unsigned)_countof(var),&v);fprintf(f,"SCRIPT SET %s %.3f\n",var,v);}
-  else if(!strncmp(s,"change text ",12)){char ui[128]={0};if(sscanf_s(s+12," \"%127[^\"]\" ",ui,(unsigned)_countof(ui))!=1)sscanf_s(s+12,"%127s",ui,(unsigned)_countof(ui));quoted(s,q,sizeof(q));fprintf(f,"SCRIPT TEXT %s \"%s\"\n",ui,q);}
+  else if(!strncmp(s,"change text ",12)){
+   char ui[128]={0},t[256]={0}; const char*p=s+12; while(*p==' ')p++;
+   if(*p=='"'){p++;const char*e=strchr(p,'"');if(e){size_t n=(size_t)(e-p);if(n>=sizeof(ui))n=sizeof(ui)-1;memcpy(ui,p,n);ui[n]=0;p=e+1;}}
+   while(*p==' ')p++;
+   if(*p=='"'){p++;const char*e=strrchr(p,'"');if(e){size_t n=(size_t)(e-p);if(n>=sizeof(t))n=sizeof(t)-1;memcpy(t,p,n);t[n]=0;}}
+   if(ui[0])fprintf(f,"SCRIPT TEXT %s \"%s\"\n",ui,t);
+  }
   else if(!strncmp(s,"subtract number ",15)){char var[128]={0};float v=0;sscanf_s(s+15,"%f from %127s",&v,var,(unsigned)_countof(var));fprintf(f,"SCRIPT SUB %s %.3f\n",var,v);}
   else if(!strncmp(s,"multiply number ",16)){char var[128]={0};float v=1;sscanf_s(s+16,"%f to %127s",&v,var,(unsigned)_countof(var));fprintf(f,"SCRIPT MUL %s %.3f\n",var,v);}
   else if(!strncmp(s,"divide number ",14)){char var[128]={0};float v=1;sscanf_s(s+14,"%f from %127s",&v,var,(unsigned)_countof(var));fprintf(f,"SCRIPT DIV %s %.3f\n",var,v);}
