@@ -316,7 +316,7 @@ static DWORD WINAPI auth_worker(LPVOID param){
     char ee[700],pp[700],body[1600],path[512];
     json_escape(job->email,ee,sizeof(ee));
     json_escape(job->password,pp,sizeof(pp));
-    sprintf_s(body,sizeof(body),"{\\"email\\":\\"%s\\",\\"password\\":\\"%s\\",\\"returnSecureToken\\":true}",ee,pp);
+    sprintf_s(body,sizeof(body),"{\"email\":\"%s\",\"password\":\"%s\",\"returnSecureToken\":true}",ee,pp);
     sprintf_s(path,sizeof(path),"/v1/accounts:%s?key=%s",job->signup?"signUp":"signInWithPassword",FIREBASE_API_KEY);
     wchar_t wp2[512];
     MultiByteToWideChar(CP_UTF8,0,path,-1,wp2,512);
