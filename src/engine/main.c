@@ -81,9 +81,10 @@ static int compile_game(const char*src,const char*path){
   else if(!strncmp(s,"enemy health ",13)){float v=30;sscanf_s(s+13,"%f",&v);fprintf(f,"HEALTH %s %.3f\n",enemy,v);}
   else if(!strncmp(s,"enemy speed ",12)){float v=2;sscanf_s(s+12,"%f",&v);fprintf(f,"SPEED %s %.3f\n",enemy,v);}
   else if(!strncmp(s,"enemy damage ",13)){float v=10;sscanf_s(s+13,"%f",&v);fprintf(f,"DAMAGE %s %.3f\n",enemy,v);}
+  else if(!strncmp(s,"enemy chase ",12)){char n[128]={0},t[128]={0};if(sscanf_s(s+12," \"%127[^\"]\" \"%127[^\"]\"",n,(unsigned)_countof(n),t,(unsigned)_countof(t))==2)fprintf(f,"RULE UPDATE %s CHASE %s 0\n",n,t);}
   else if(!strncmp(s,"weapon create ",14)){quoted(s,q,sizeof(q));strncpy_s(weapon,sizeof(weapon),q,_TRUNCATE);fprintf(f,"ENTITY %s MODEL cube\n",weapon);}
   else if(!strncmp(s,"weapon damage ",14)){float v=15;sscanf_s(s+14,"%f",&v);fprintf(f,"DAMAGE %s %.3f\n",weapon,v);}
-  else if(!strncmp(s,"weapon fire rate ",17)){float v=.2f;sscanf_s(s+17,"%f",&v);}
+  else if(!strncmp(s,"weapon fire rate ",17)){float v=.2f;sscanf_s(s+17,"%f",&v);fprintf(f,"FIRE_RATE %s %.3f\n",weapon,v);}
   else if(!strncmp(s,"if key ",7)){
    char key[64]={0};sscanf_s(s,"if key \"%63[^\"]\" is pressed",key,(unsigned)_countof(key));
    char*p=strstr(s,"player move ");if(p){char dir[64]={0};sscanf_s(p+12,"%63s",dir,(unsigned)_countof(dir));fprintf(f,"RULE KEY %s %s MOVE %s 0\n",key,player,dir);}
