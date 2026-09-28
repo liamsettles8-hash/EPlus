@@ -47,7 +47,7 @@ int run_eplus(const char*src){
    if(!and){fprintf(stderr,"E#+ error: invalid ask statement: %s\n",s);free(c);return 1;}
    char tmp[MAXLINE];strncpy_s(tmp,sizeof(tmp),s+9,_TRUNCATE);char*save=strstr(tmp," and save answer as ");
    if(!save){free(c);return 1;}*save=0;strcpy_s(name,sizeof(name),trim(save+20));eval(trim(tmp),prompt,sizeof(prompt));
-   char answer[1024]={0};printf("%s",prompt);fflush(stdout);if(!fgets(answer,sizeof(answer),stdin))answer[0]=0;answer[strcspn(answer,"\r\n")]=0;setv(name,answer);continue;
+   char answer[1024]={0};printf("%s\n",prompt);fflush(stdout);if(!fgets(answer,sizeof(answer),stdin))answer[0]=0;answer[strcspn(answer,"\r\n")]=0;setv(name,answer);continue;
   }
   if(!strncmp(s,"set ",4)){
    char*p=strstr(s+4," to ");if(!p){fprintf(stderr,"E#+ error: invalid set statement: %s\n",s);free(c);return 1;}*p=0;
