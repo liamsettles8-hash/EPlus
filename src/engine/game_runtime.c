@@ -20,6 +20,8 @@ typedef struct {
     Vector3 pos, rotation;
     float scale, health, maxHealth, speed, damage, cooldown;
     Color color;
+    char followTarget[128];
+    float followDistance;
     int alive, controllable, solid, clickable;
 } Entity;
 
@@ -116,7 +118,7 @@ static Entity *add_entity(Scene *s, const char *name) {
     memset(e,0,sizeof(*e));
     strncpy_s(e->name,sizeof(e->name),name,_TRUNCATE);
     strcpy_s(e->model,sizeof(e->model),"cube");
-    e->scale=1; e->health=100; e->maxHealth=100; e->speed=5; e->alive=1; e->solid=1; e->color=(Color){210,70,75,255};
+    e->scale=1; e->health=100; e->maxHealth=100; e->speed=5; e->followDistance=3.0f; e->alive=1; e->solid=1; e->color=(Color){210,70,75,255};
     return e;
 }
 static void add_rule(Scene *s,const char *event,const char *a,const char *action,const char *b,float value) {
@@ -167,6 +169,7 @@ static int load_scene(const char *path,Scene *s) {
         if(sscanf_s(line,"DAMAGE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].damage=x;continue;}
         if(sscanf_s(line,"MODEL %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].model,sizeof(s->entities[i].model),b,_TRUNCATE);continue;}
         if(sscanf_s(line,"SCALE %127s %f",a,(unsigned)_countof(a),&x)==2){int i=find_entity(s,a);if(i>=0)s->entities[i].scale=x;continue;}
+        if(sscanf_s(line,"FOLLOW %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0){strncpy_s(s->entities[i].followTarget,sizeof(s->entities[i].followTarget),b,_TRUNCATE);s->entities[i].followDistance=3.0f;}continue;}
         if(sscanf_s(line,"ROT %127s %f %f %f",a,(unsigned)_countof(a),&x,&y,&z)==4){int i=find_entity(s,a);if(i>=0)s->entities[i].rotation=(Vector3){x,y,z};continue;}
         if(!strncmp(line,"COLOR ",6)){int cr=255,cg=255,cb=255;if(sscanf_s(line+6,"%127s %d %d %d",a,(unsigned)_countof(a),&cr,&cg,&cb)==4){int i=find_entity(s,a);if(i>=0)s->entities[i].color=(Color){(unsigned char)cr,(unsigned char)cg,(unsigned char)cb,255};}continue;}
         if(sscanf_s(line,"TEXTURE %127s %127s",a,(unsigned)_countof(a),b,(unsigned)_countof(b))==2){int i=find_entity(s,a);if(i>=0)strncpy_s(s->entities[i].texture,sizeof(s->entities[i].texture),b,_TRUNCATE);continue;}
@@ -340,6 +343,28 @@ int main(int argc,char **argv) {
     int grounded=0;
     while(!WindowShouldClose()){
         float dt=GetFrameTime();elapsed+=dt;shaderTime+=dt;
+        /* E#+ 3D object following: smoothly move each follower toward its target. */
+        for(int fi=0;fi<s.entityCount;fi++){
+            Entity *f=&s.entities[fi];
+            if(!f->alive || !f->followTarget[0]) continue;
+            int ti=find_entity(&s,f->followTarget);
+            if(ti<0 || ti==fi || !s.entities[ti].alive) continue;
+            Entity *t=&s.entities[ti];
+            Vector3 delta=Vector3Subtract(t->pos,f->pos);
+            float dist=Vector3Length(delta);
+            float desired=f->followDistance>0?f->followDistance:3.0f;
+            if(dist>desired){
+                Vector3 dir=Vector3Scale(delta,1.0f/(dist>0.001f?dist:1.0f));
+                float step=f->speed*dt;
+                float move=dist-desired;
+                if(step>move) step=move;
+                f->pos=Vector3Add(f->pos,Vector3Scale(dir,step));
+            }
+            if(dist>0.05f){
+                f->rotation.y=atan2f(delta.x,delta.z)*57.2957795f;
+            }
+        }
+
         if(player>=0 && s.entities[player].alive){
             Entity *p=&s.entities[player];
             Vector2 md=GetMouseDelta();yaw+=md.x*.10f;pitch-=md.y*.10f;
