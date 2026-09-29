@@ -1,7 +1,7 @@
 [Setup]
 AppId={{F5D36D18-7B9E-4E76-9F35-EPLUSSTUDIO01}}
 AppName=E#+ Studio
-AppVersion=0.3.0
+AppVersion=2.0.0
 AppPublisher=E#+ Project
 DefaultDirName={autopf}\EPlus Studio
 DefaultGroupName=E#+ Studio
