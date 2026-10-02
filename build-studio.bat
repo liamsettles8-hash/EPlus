@@ -50,6 +50,9 @@ if not exist "%RAYLIB_LIB%" (
 cl /nologo /O2 /W3 /EHsc /MD /Ithird_party\raylib\src src\engine\game_runtime.c /Fe:build\EPlusGameRuntime.exe "%RAYLIB_LIB%" opengl32.lib gdi32.lib winmm.lib user32.lib shell32.lib
 if errorlevel 1 goto :error
 
+copy /Y src\engine\eplus_realistic.vs build\eplus_realistic.vs >nul
+copy /Y src\engine\eplus_realistic.fs build\eplus_realistic.fs >nul
+
 echo [3/3] Building E#+ Studio (x64)...
 cl /nologo /O2 /W3 /EHsc /DUNICODE /D_UNICODE /favor:AMD64 src\studio\studio.c /Fe:build\EPlusStudio.exe user32.lib gdi32.lib comdlg32.lib shell32.lib winhttp.lib
 if errorlevel 1 goto :error
