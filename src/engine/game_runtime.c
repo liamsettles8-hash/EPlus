@@ -332,7 +332,16 @@ static void render_2d(Scene *s) {
 }
 int main(int argc,char **argv) {
     Scene s;
-    if(argc<2 || !load_scene(argv[1],&s)){fprintf(stderr,"E#+ Game Runtime: invalid scene.\n");return 1;}
+    char defaultScene[1024]={0};
+    const char *scenePath=(argc>=2)?argv[1]:NULL;
+    if(!scenePath){
+        strncpy_s(defaultScene,sizeof(defaultScene),argv[0],_TRUNCATE);
+        char *dot=strrchr(defaultScene,'.');
+        if(dot) *dot=0;
+        strncat_s(defaultScene,sizeof(defaultScene),".scene",_TRUNCATE);
+        scenePath=defaultScene;
+    }
+    if(!load_scene(scenePath,&s)){fprintf(stderr,"E#+ Game Runtime: invalid scene.\n");return 1;}
     InitWindow(s.width,s.height,s.title);
     for(int ai=0;ai<s.assetCount;ai++){
         s.assets[ai].texture=LoadTexture(s.assets[ai].path);
