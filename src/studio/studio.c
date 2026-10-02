@@ -72,19 +72,19 @@ static void append_console(const wchar_t*s){int n=GetWindowTextLengthW(console);
 static void build_game_exe_command(void){
     wchar_t tmp[MAX_PATH],desktop[MAX_PATH],dir[MAX_PATH],eng[MAX_PATH],out[MAX_PATH],cmd[4*MAX_PATH];
     GetTempPathW(MAX_PATH,tmp);wcscat_s(tmp,MAX_PATH,L"EPlusStudio_Build.eplus");
-    if(!savefile(tmp)){append_console(L"\\r\\n> EXE BUILD ERROR: could not save current code.\\r\\n");return;}
+    if(!savefile(tmp)){append_console(L"\r\n> EXE BUILD ERROR: could not save current code.\\r\\n");return;}
     if(FAILED(SHGetFolderPathW(NULL,CSIDL_DESKTOPDIRECTORY,NULL,SHGFP_TYPE_CURRENT,desktop))){
-        append_console(L"\\r\\n> EXE BUILD ERROR: could not find Desktop.\\r\\n");DeleteFileW(tmp);return;
+        append_console(L"\r\n> EXE BUILD ERROR: could not find Desktop.\\r\\n");DeleteFileW(tmp);return;
     }
     swprintf_s(out,MAX_PATH,L"%s\\\\EPlusGame.exe",desktop);
-    GetModuleFileNameW(NULL,dir,MAX_PATH);wchar_t*slash=wcsrchr(dir,L'\\\\');if(slash)*slash=0;
+    GetModuleFileNameW(NULL,dir,MAX_PATH);wchar_t*slash=wcsrchr(dir,L'\\');if(slash)*slash=0;
     swprintf_s(eng,MAX_PATH,L"%s\\\\eplus-engine.exe",dir);
     if(GetFileAttributesW(eng)==INVALID_FILE_ATTRIBUTES){
-        append_console(L"\\r\\n> EXE BUILD ERROR: eplus-engine.exe was not found.\\r\\n");DeleteFileW(tmp);return;
+        append_console(L"\r\n> EXE BUILD ERROR: eplus-engine.exe was not found.\\r\\n");DeleteFileW(tmp);return;
     }
     swprintf_s(cmd,4*MAX_PATH,L"\\\"%s\\\" --build-exe \\\"%s\\\" \\\"%s\\\"",eng,tmp,out);
     STARTUPINFOW si={sizeof(si)};PROCESS_INFORMATION pi={0};
-    append_console(L"\\r\\n> Building EPlusGame.exe...\\r\\n");
+    append_console(L"\r\n> Building EPlusGame.exe...\\r\\n");
     if(!CreateProcessW(NULL,cmd,NULL,NULL,FALSE,CREATE_NO_WINDOW,NULL,NULL,&si,&pi)){
         append_console(L"> EXE BUILD ERROR: could not start build process.\\r\\n");DeleteFileW(tmp);return;
     }
@@ -106,7 +106,7 @@ static void send_console_input(void){
         int start=n;while(start>0&&all[start-1]!=L'\\n')start--;
         while(start<n&&(all[start]==L'\\r'||all[start]==L'\\n'))start++;
         if(!_wcsicmp(all+start,L"exe build")){
-            SendMessageW(console,EM_SETSEL,n,n);SendMessageW(console,EM_REPLACESEL,FALSE,(LPARAM)L"\\r\\n");
+            SendMessageW(console,EM_SETSEL,n,n);SendMessageW(console,EM_REPLACESEL,FALSE,(LPARAM)L"\r\n");
             build_game_exe_command();free(all);return;
         }
         free(all);return;
