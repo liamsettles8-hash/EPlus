@@ -50,6 +50,7 @@ static HWND extPanel=NULL, extCanvas=NULL, extWindow=NULL, authWindow=NULL, sign
 static int extMode=0, extDrawing=0, extBrush=8;
 static COLORREF extColor=RGB(30,30,30);
 static WNDPROC oldConsoleProc = NULL;
+static HWND runButton = NULL;
 static volatile LONG runActive = 0;
 static int guestMode=0, loggedIn=0;
 static char firebaseIdToken[4096]={0},firebaseUid[256]={0},firebaseEmail[320]={0};
@@ -105,17 +106,18 @@ static void send_console_input(void){
     wchar_t *line=(wchar_t*)malloc(((size_t)n+1)*sizeof(wchar_t));if(!line)return;
     GetWindowTextW(consoleInput,line,n+1);
     append_console(L"> ");append_console(line);append_console(L"\r\n");
-    if(!_wcsicmp(line,L"clear")){set_text(console,L"E#+ Console\r\n");set_text(consoleInput,L"cmd");free(line);return;}
+    if(!_wcsicmp(line,L"clear")){set_text(console,L"E#+ Console\r\n");set_text(consoleInput,L"");free(line);return;}
     if(!childStdinWrite){
         if(!_wcsicmp(line,L"exe build"))build_game_exe_command();
         else append_console(L"> No program is running. Type exe build to build a game EXE.\r\n");
-        set_text(consoleInput,L"cmd");free(line);return;
+        set_text(consoleInput,L"");free(line);return;
     }
     int bytes=WideCharToMultiByte(CP_UTF8,0,line,n,NULL,0,NULL,NULL);
     if(bytes>0){char *bb=(char*)malloc((size_t)bytes+1);if(bb){WideCharToMultiByte(CP_UTF8,0,line,n,bb,bytes,NULL,NULL);bb[bytes]='\n';DWORD written=0;WriteFile(childStdinWrite,bb,(DWORD)bytes+1,&written,NULL);free(bb);}}
-    set_text(consoleInput,L"cmd");free(line);
+    set_text(consoleInput,L"");free(line);
 }
 static LRESULT CALLBACK console_proc(HWND h,UINT m,WPARAM w,LPARAM l){
+    if(m==WM_SETFOCUS){SendMessageW(h,EM_SETSEL,0,-1);return 0;}
     if(m==WM_KEYDOWN&&w==VK_RETURN){send_console_input();return 0;}
     return oldConsoleProc?CallWindowProcW(oldConsoleProc,h,m,w,l):DefWindowProcW(h,m,w,l);
 }
@@ -434,7 +436,7 @@ static void file_dialog(int save){
 
 static DWORD WINAPI run_worker(LPVOID param){
     (void)param;
-    if(InterlockedCompareExchange(&runActive,1,0)!=0){append_console(L"E#+ is already running.\r\n");return 0;}
+    if(InterlockedCompareExchange(&runActive,1,0)!=0){return 0;}
     wchar_t tmp[MAX_PATH],dir[MAX_PATH],eng[MAX_PATH],cmd[2*MAX_PATH];
     GetTempPathW(MAX_PATH,tmp);wcscat_s(tmp,MAX_PATH,L"EPlusStudio_Run.eplus");
     if(!savefile(tmp)){append_console(L"Could not create temporary file.\r\n");InterlockedExchange(&runActive,0);return 0;}
@@ -459,7 +461,7 @@ static DWORD WINAPI run_worker(LPVOID param){
 
     wchar_t cl[2*MAX_PATH];
     wcscpy_s(cl,2*MAX_PATH,cmd);
-    set_text(console,L"E#+ Console\r\n");set_text(consoleInput,L"cmd");
+    set_text(console,L"E#+ Console\r\n");set_text(consoleInput,L"");
 
     if(!CreateProcessW(NULL,cl,NULL,NULL,TRUE,CREATE_NO_WINDOW,NULL,NULL,&si,&pi)){
         append_console(L"ERROR: could not start engine.\r\n");
@@ -482,7 +484,7 @@ static DWORD WINAPI run_worker(LPVOID param){
     append_console(st);
     if(childStdinWrite){CloseHandle(childStdinWrite);childStdinWrite=NULL;}
     CloseHandle(r);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);
-    InterlockedExchange(&runActive,0);
+    InterlockedExchange(&runActive,0);if(runButton)EnableWindow(runButton,TRUE);
     return 0;
 }
 
@@ -524,7 +526,7 @@ static LRESULT CALLBACK wnd(HWND h,UINT m,WPARAM w,LPARAM l){
         return 0;
     }
     case WM_APP_UPDATE_RESULT:{ UpdateInfo *u=(UpdateInfo*)l; if(u){ if(u->available && u->downloadUrl[0]){ wchar_t msg[512];swprintf_s(msg,512,L"E#+ Studio %s is available.\r\n\r\nUpdate now?",u->version);if(MessageBoxW(h,msg,L"E#+ Update Available",MB_YESNO|MB_ICONINFORMATION)==IDYES)install_update(h,u->downloadUrl); } free(u);} return 0;}
-    case WM_COMMAND:switch(LOWORD(w)){case RUN:run_program();return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:save_cloud(h);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:if(!guestMode)check_updates(h,0);return 0;case 301:show_native_extension(h,1);return 0;case 302:show_native_extension(h,2);return 0;case 303:if(extWindow)ShowWindow(extWindow,SW_HIDE);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");set_text(consoleInput,L"cmd");SetFocus(consoleInput);return 0;case IMPORT_IMAGE:import_image(h);return 0;case ADD_IMPORT:add_import_template(h);return 0;}break;
+    case WM_COMMAND:switch(LOWORD(w)){case RUN:if(InterlockedCompareExchange(&runActive,1,0)==0){InterlockedExchange(&runActive,0);if(runButton)EnableWindow(runButton,FALSE);run_program();}return 0;case NEW:set_text(editor,L"");return 0;case OPEN:file_dialog(0);return 0;case SAVE:save_cloud(h);return 0;case GUIDE:guide(h);return 0;case SETTINGS:show_settings(h);return 0;case CHECK_UPDATES:if(!guestMode)check_updates(h,0);return 0;case 301:show_native_extension(h,1);return 0;case 302:show_native_extension(h,2);return 0;case 303:if(extWindow)ShowWindow(extWindow,SW_HIDE);return 0;case CLEAR:set_text(console,L"E#+ Console\r\n");set_text(consoleInput,L"");SetFocus(consoleInput);return 0;case IMPORT_IMAGE:import_image(h);return 0;case ADD_IMPORT:add_import_template(h);return 0;}break;
     case WM_DESTROY:
         if(font)DeleteObject(font);if(bgBrush)DeleteObject(bgBrush);if(panelBrush)DeleteObject(panelBrush);if(inputBrush)DeleteObject(inputBrush);PostQuitMessage(0);return 0;
     }
