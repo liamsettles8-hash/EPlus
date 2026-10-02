@@ -104,7 +104,28 @@ static int launch(const char*engine,const char*game){
  if(!CreateProcessA(NULL,cmd,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi)){fprintf(stderr,"E#+ error: game runtime launch failed (%lu).\n",(unsigned long)GetLastError());DeleteFileA(scene);return 1;}
  CloseHandle(pi.hThread);WaitForSingleObject(pi.hProcess,INFINITE);DWORD code=1;GetExitCodeProcess(pi.hProcess,&code);CloseHandle(pi.hProcess);DeleteFileA(scene);return (int)code;
 }
+static int build_game_exe(const char *engine,const char *game,const char *output){
+ char runtime[MAX_PATH],scene[MAX_PATH],engineDir[MAX_PATH],*slash;
+ strncpy_s(engineDir,sizeof(engineDir),engine,_TRUNCATE);
+ slash=strrchr(engineDir,'\\');if(!slash)slash=strrchr(engineDir,'/');if(!slash)return 0;slash[1]=0;
+ snprintf(runtime,sizeof(runtime),"%sEPlusGameRuntime.exe",engineDir);
+ if(GetFileAttributesA(runtime)==INVALID_FILE_ATTRIBUTES){fprintf(stderr,"E#+ build error: EPlusGameRuntime.exe was not found next to the engine.\n");return 0;}
+ if(!CopyFileA(runtime,output,FALSE)){fprintf(stderr,"E#+ build error: could not create %s (%lu).\n",output,(unsigned long)GetLastError());return 0;}
+ strncpy_s(scene,sizeof(scene),output,_TRUNCATE);
+ slash=strrchr(scene,'.');if(slash && !_stricmp(slash,".exe"))*slash=0;
+ strcat_s(scene,sizeof(scene),".scene");
+ char*src=read_entire_file(game);if(!src){DeleteFileA(output);return 0;}
+ int ok=compile_game(src,scene);free(src);if(!ok){DeleteFileA(output);DeleteFileA(scene);return 0;}
+ fprintf(stdout,"E#+ build complete: %s\n",output);
+ fprintf(stdout,"Scene: %s\n",scene);
+ return 1;
+}
+
 int main(int argc,char**argv){
+ if(argc>=2 && !_stricmp(argv[1],"--build-exe")){
+  if(argc<4){fprintf(stderr,"Usage: eplus-engine --build-exe game.eplus output.exe\n");return 1;}
+  return build_game_exe(argv[0],argv[2],argv[3])?0:1;
+ }
  if(argc<2){fprintf(stderr,"E#+ engine 0.5\nUsage: eplus-engine file.eplus\n");return 1;}
  char*s=read_entire_file(argv[1]);if(!s){fprintf(stderr,"E#+ error: could not read file\n");return 1;}
  if(is_game_source(s)){int r=launch(argv[0],argv[1]);free(s);return r;}
