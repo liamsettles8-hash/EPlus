@@ -100,42 +100,25 @@ static void build_game_exe_command(void){
 }
 
 static void send_console_input(void){
-    int n=GetWindowTextLengthW(console);
+    if(!consoleInput)return;
+    int n=GetWindowTextLengthW(consoleInput);if(n<=0)return;
+    wchar_t *line=(wchar_t*)malloc(((size_t)n+1)*sizeof(wchar_t));if(!line)return;
+    GetWindowTextW(consoleInput,line,n+1);
+    append_console(L"> ");append_console(line);append_console(L"\r\n");
+    if(!_wcsicmp(line,L"clear")){set_text(console,L"E#+ Console\r\n");set_text(consoleInput,L"cmd");free(line);return;}
     if(!childStdinWrite){
-        wchar_t *all=(wchar_t*)malloc(((size_t)n+1)*sizeof(wchar_t));if(!all)return;
-        GetWindowTextW(console,all,n+1);
-        int start=n;while(start>0&&all[start-1]!=L'\\n')start--;
-        while(start<n&&(all[start]==L'\\r'||all[start]==L'\\n'))start++;
-        if(!_wcsicmp(all+start,L"exe build")){
-            SendMessageW(console,EM_SETSEL,n,n);SendMessageW(console,EM_REPLACESEL,FALSE,(LPARAM)L"\r\n");
-            build_game_exe_command();free(all);return;
-        }
-        free(all);return;
+        if(!_wcsicmp(line,L"exe build"))build_game_exe_command();
+        else append_console(L"> No program is running. Type exe build to build a game EXE.\r\n");
+        set_text(consoleInput,L"cmd");free(line);return;
     }
-    if(!childStdinWrite)return;
-    n=GetWindowTextLengthW(console);if(n<=0)return;
-    wchar_t *all=(wchar_t*)malloc(((size_t)n+1)*sizeof(wchar_t));if(!all)return;
-    GetWindowTextW(console,all,n+1);
-    int start=n;
-    while(start>0 && all[start-1]!=L'\n')start--;
-    while(start<n && (all[start]==L'\r'||all[start]==L'\n'))start++;
-    int len=n-start;if(len<0)len=0;
-    wchar_t *line=(wchar_t*)malloc(((size_t)len+2)*sizeof(wchar_t));if(!line){free(all);return;}
-    memcpy(line,all+start,(size_t)len*sizeof(wchar_t));line[len]=L'\n';line[len+1]=0;
-    int bytes=WideCharToMultiByte(CP_UTF8,0,line,len+1,NULL,0,NULL,NULL);
-    if(bytes>0){
-        char *b=(char*)malloc((size_t)bytes);
-        if(b){WideCharToMultiByte(CP_UTF8,0,line,len+1,b,bytes,NULL,NULL);DWORD written=0;WriteFile(childStdinWrite,b,(DWORD)bytes,&written,NULL);free(b);}
-    }
-    SendMessageW(console,EM_SETSEL,n,n);
-    SendMessageW(console,EM_REPLACESEL,FALSE,(LPARAM)L"\r\n");
-    free(line);free(all);
+    int bytes=WideCharToMultiByte(CP_UTF8,0,line,n,NULL,0,NULL,NULL);
+    if(bytes>0){char *bb=(char*)malloc((size_t)bytes+1);if(bb){WideCharToMultiByte(CP_UTF8,0,line,n,bb,bytes,NULL,NULL);bb[bytes]='\n';DWORD written=0;WriteFile(childStdinWrite,bb,(DWORD)bytes+1,&written,NULL);free(bb);}}
+    set_text(consoleInput,L"cmd");free(line);
 }
 static LRESULT CALLBACK console_proc(HWND h,UINT m,WPARAM w,LPARAM l){
-    if(m==WM_KEYDOWN&&w==VK_RETURN&&childStdinWrite){send_console_input();return 0;}
+    if(m==WM_KEYDOWN&&w==VK_RETURN){send_console_input();return 0;}
     return oldConsoleProc?CallWindowProcW(oldConsoleProc,h,m,w,l):DefWindowProcW(h,m,w,l);
 }
-
 static int savefile(const wchar_t*p){
     int n=GetWindowTextLengthW(editor); wchar_t*w=(wchar_t*)calloc((size_t)n+1,sizeof(wchar_t)); if(!w)return 0;
     GetWindowTextW(editor,w,n+1); FILE*f=_wfopen(p,L"wb"); if(!f){free(w);return 0;}
