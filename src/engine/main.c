@@ -110,7 +110,19 @@ static int build_game_exe(const char *engine,const char *game,const char *output
  slash=strrchr(engineDir,'\\');if(!slash)slash=strrchr(engineDir,'/');if(!slash)return 0;slash[1]=0;
  snprintf(runtime,sizeof(runtime),"%sEPlusGameRuntime.exe",engineDir);
  if(GetFileAttributesA(runtime)==INVALID_FILE_ATTRIBUTES){fprintf(stderr,"E#+ build error: EPlusGameRuntime.exe was not found next to the engine.\n");return 0;}
- if(!CopyFileA(runtime,output,FALSE)){fprintf(stderr,"E#+ build error: could not create %s (%lu).\n",output,(unsigned long)GetLastError());return 0;}
+ if(!CopyFileA(runtime,output,TRUE)){fprintf(stderr,"E#+ build error: could not create %s (%lu).\n",output,(unsigned long)GetLastError());return 0;}
+ {
+  char outDir[MAX_PATH],shaderVs[MAX_PATH],shaderFs[MAX_PATH],*outSlash;
+  strncpy_s(outDir,sizeof(outDir),output,_TRUNCATE);
+  outSlash=strrchr(outDir,'\\\\');if(!outSlash)outSlash=strrchr(outDir,'/');if(outSlash)*outSlash=0;else strcpy_s(outDir,sizeof(outDir),".");
+  snprintf(shaderVs,sizeof(shaderVs),"%seplus_realistic.vs",engineDir);
+  snprintf(shaderFs,sizeof(shaderFs),"%seplus_realistic.fs",engineDir);
+  char dstVs[MAX_PATH],dstFs[MAX_PATH];
+  snprintf(dstVs,sizeof(dstVs),"%s\\\\eplus_realistic.vs",outDir);
+  snprintf(dstFs,sizeof(dstFs),"%s\\\\eplus_realistic.fs",outDir);
+  if(GetFileAttributesA(shaderVs)!=INVALID_FILE_ATTRIBUTES)CopyFileA(shaderVs,dstVs,TRUE);
+  if(GetFileAttributesA(shaderFs)!=INVALID_FILE_ATTRIBUTES)CopyFileA(shaderFs,dstFs,TRUE);
+ }
  strncpy_s(scene,sizeof(scene),output,_TRUNCATE);
  slash=strrchr(scene,'.');if(slash && !_stricmp(slash,".exe"))*slash=0;
  strcat_s(scene,sizeof(scene),".scene");
