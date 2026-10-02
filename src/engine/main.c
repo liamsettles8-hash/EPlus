@@ -114,12 +114,12 @@ static int build_game_exe(const char *engine,const char *game,const char *output
  {
   char outDir[MAX_PATH],shaderVs[MAX_PATH],shaderFs[MAX_PATH],*outSlash;
   strncpy_s(outDir,sizeof(outDir),output,_TRUNCATE);
-  outSlash=strrchr(outDir,'\\\\');if(!outSlash)outSlash=strrchr(outDir,'/');if(outSlash)*outSlash=0;else strcpy_s(outDir,sizeof(outDir),".");
+  outSlash=strrchr(outDir,'\\');if(!outSlash)outSlash=strrchr(outDir,'/');if(outSlash)*outSlash=0;else strcpy_s(outDir,sizeof(outDir),".");
   snprintf(shaderVs,sizeof(shaderVs),"%seplus_realistic.vs",engineDir);
   snprintf(shaderFs,sizeof(shaderFs),"%seplus_realistic.fs",engineDir);
   char dstVs[MAX_PATH],dstFs[MAX_PATH];
-  snprintf(dstVs,sizeof(dstVs),"%s\\\\eplus_realistic.vs",outDir);
-  snprintf(dstFs,sizeof(dstFs),"%s\\\\eplus_realistic.fs",outDir);
+  snprintf(dstVs,sizeof(dstVs),"%s\\eplus_realistic.vs",outDir);
+  snprintf(dstFs,sizeof(dstFs),"%s\\eplus_realistic.fs",outDir);
   if(GetFileAttributesA(shaderVs)!=INVALID_FILE_ATTRIBUTES)CopyFileA(shaderVs,dstVs,TRUE);
   if(GetFileAttributesA(shaderFs)!=INVALID_FILE_ATTRIBUTES)CopyFileA(shaderFs,dstFs,TRUE);
  }
