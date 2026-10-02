@@ -358,8 +358,11 @@ int main(int argc,char **argv) {
     SetWindowFocused();
     RestoreWindow();
     SetTargetFPS(120);
-    /* 2D is an overlay on top of 3D. A canvas never disables the 3D world. */
-    DisableCursor();
+    /* 2D games use the normal Windows mouse cursor so UI buttons can be
+       clicked without locking/capturing the pointer. 3D gameplay keeps the
+       cursor hidden for first-person controls. */
+    if(s.canvas || s.uiCount>0) EnableCursor();
+    else DisableCursor();
     /* Resolve bundled shaders relative to the runtime executable without
        depending on windows.h (which conflicts with raylib's Win32 names). */
     char exeDir[1024]={0}, shaderVs[1024]={0}, shaderFs[1024]={0};
