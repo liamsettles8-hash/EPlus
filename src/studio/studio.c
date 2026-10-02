@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <winhttp.h>
 #include <shellapi.h>
+#include <shlobj.h>
 
 #define ED 101
 #define CONSOLE_OUT 102
