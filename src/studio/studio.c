@@ -39,7 +39,7 @@
 #define FIREBASE_API_KEY "AIzaSyBtVou8AIqNyJQaZJkIIkvTIsk6z5-QwX4"
 #define FIREBASE_PROJECT_ID "eplus-9896a"
 
-static HWND mainWnd, editor, console;
+static HWND mainWnd, editor, console, consoleInput;
 static HFONT font = NULL;
 static int darkMode = 1;
 static int fontSize = 18;
